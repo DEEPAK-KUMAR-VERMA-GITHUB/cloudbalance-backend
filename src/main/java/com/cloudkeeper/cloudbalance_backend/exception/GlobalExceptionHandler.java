@@ -1,6 +1,8 @@
 package com.cloudkeeper.cloudbalance_backend.exception;
 
 import com.cloudkeeper.cloudbalance_backend.dto.response.ApiResponse;
+import com.cloudkeeper.cloudbalance_backend.logging.Logger;
+import com.cloudkeeper.cloudbalance_backend.logging.LoggerFactory;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,12 +17,13 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RestControllerAdvice
-@Slf4j
 public class GlobalExceptionHandler {
+
+    private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ApiResponse<Void>> handleResourceNotFoundException(ResourceNotFoundException ex) {
-        log.error("Resource not found: {}", ex.getMessage());
+        logger.error("Resource not found: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
                 ApiResponse.<Void>builder()
                         .success(false)
@@ -31,7 +34,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({InvalidCredentialsException.class, BadCredentialsException.class})
     public ResponseEntity<ApiResponse<Void>> handleInvalidCredentials(Exception ex) {
-        log.error("Authentication failed: {}", ex.getMessage());
+        logger.error("Authentication failed: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(  // Changed to 401
                 ApiResponse.<Void>builder()
                         .success(false)
@@ -42,7 +45,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiResponse<Void>> handleAccessDenied(AccessDeniedException ex) {
-        log.error("Access denied: {}", ex.getMessage());
+        logger.error("Access denied: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
                 ApiResponse.<Void>builder()
                         .success(false)
@@ -53,7 +56,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiResponse<Void>> handleIllegalArgument(IllegalArgumentException ex) {
-        log.error("Invalid argument: {}", ex.getMessage());
+        logger.error("Invalid argument: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
                 ApiResponse.<Void>builder()
                         .success(false)
@@ -83,7 +86,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGlobalException(Exception ex) {
-        log.error("Unexpected error: ", ex);
+        logger.error("Unexpected error: ", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
                 ApiResponse.<Void>builder()
                         .success(false)

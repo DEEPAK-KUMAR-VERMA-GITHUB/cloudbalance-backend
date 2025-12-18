@@ -3,6 +3,7 @@ package com.cloudkeeper.cloudbalance_backend.controller;
 import com.cloudkeeper.cloudbalance_backend.dto.request.LoginRequest;
 import com.cloudkeeper.cloudbalance_backend.dto.response.ApiResponse;
 import com.cloudkeeper.cloudbalance_backend.dto.response.AuthResponse;
+import com.cloudkeeper.cloudbalance_backend.logging.annotation.Loggable;
 import com.cloudkeeper.cloudbalance_backend.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -24,6 +25,7 @@ public class AuthController {
 
     @PostMapping("/login")
     @Operation(summary = "Login user", description = "Authenticate user and return jwt token")
+    @Loggable
     public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest request){
         AuthResponse authResponse = authService.login(request);
         return ResponseEntity.ok(ApiResponse.<AuthResponse>builder()

@@ -4,6 +4,9 @@ import com.cloudkeeper.cloudbalance_backend.dto.request.LoginRequest;
 import com.cloudkeeper.cloudbalance_backend.dto.response.AuthResponse;
 import com.cloudkeeper.cloudbalance_backend.entity.User;
 import com.cloudkeeper.cloudbalance_backend.exception.InvalidCredentialsException;
+import com.cloudkeeper.cloudbalance_backend.logging.Logger;
+import com.cloudkeeper.cloudbalance_backend.logging.LoggerFactory;
+import com.cloudkeeper.cloudbalance_backend.logging.annotation.Loggable;
 import com.cloudkeeper.cloudbalance_backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,20 +23,21 @@ import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class AuthService {
 
     private final UserRepository userRepository;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
     private final AppUserDetailsService appUserDetailsService;
+    private static final Logger logger = LoggerFactory.getLogger(AuthService.class);
 
     @Transactional
+    @Loggable(logArgs = false, logResult = true)
     public AuthResponse login(LoginRequest request) {
         try {
             // try to authenticate user
             Authentication authentication = authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
-            log.info("Authentication successful for: {}", request.getEmail());
+            logger.info("Authentication successful for: {}", request.getEmail());
             // load user details
             UserDetails userDetails = appUserDetailsService.loadUserByUsername(request.getEmail());
 
@@ -45,7 +49,7 @@ public class AuthService {
             user.setLastLogin(LocalDateTime.now());
             userRepository.save(user);
 
-            log.info("User logged in successfully : {}", request.getEmail());
+            logger.info("User logged in successfully : {}", request.getEmail());
 
             // Get primary role
             String primaryRole = user.getRoles().isEmpty() ? "USER" : user.getRoles().iterator().next().getDisplayName();
@@ -53,12 +57,12 @@ public class AuthService {
             return AuthResponse.builder().token(token).type("Bearer").name(user.getFirstName() + " " + user.getLastName()).email(user.getEmail()).role(primaryRole).build();
 
         } catch (BadCredentialsException e) {
-            log.error("Invalid credentials for email: {}", request.getEmail());
+            logger.error("Invalid credentials for email: {}", request.getEmail());
             throw new InvalidCredentialsException("Invalid email or password");
         } catch (InvalidCredentialsException e) {
             throw e;
         } catch (Exception e) {
-            log.error("Unexpected error during login for email: {}", request.getEmail(), e);
+            logger.error("Unexpected error during login for email: {}", request.getEmail(), e);
             throw new RuntimeException("Login failed due to unexpected error", e);
         }
     }

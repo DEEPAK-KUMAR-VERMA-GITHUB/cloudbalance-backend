@@ -1,5 +1,7 @@
 package com.cloudkeeper.cloudbalance_backend.service;
 
+import com.cloudkeeper.cloudbalance_backend.logging.Logger;
+import com.cloudkeeper.cloudbalance_backend.logging.LoggerFactory;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -16,13 +18,14 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
-@Slf4j
 @Service
 public class JwtService {
     @Value("${jwt.secret}")
     private String secretKey;
     @Value("${jwt.expiration}")
     private long jwtExpiration;
+
+    private static final Logger logger = LoggerFactory.getLogger(JwtService.class);
 
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
@@ -57,7 +60,7 @@ public class JwtService {
     }
 
     private Key getSignInKey() {
-        log.info("Secret Key from application : " + secretKey);
+        logger.info("Secret Key from application : " + secretKey);
         byte[] keyBytes = Decoders.BASE64.decode(secretKey);
         return Keys.hmacShaKeyFor(keyBytes);
     }
