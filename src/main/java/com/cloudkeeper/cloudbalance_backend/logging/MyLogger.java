@@ -8,11 +8,8 @@ import java.time.format.DateTimeFormatter;
 
 public class MyLogger implements Logger {
 
-    private final String className;
-    private final LogLevel logLevel;
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
     private static final String LOG_FILE_PATH = "logs/cloudbalance.log";
-
     // ANSI COLOR CODES
     private static final String RESET = "\u001B[0m";
     private static final String RED = "\u001B[31m";
@@ -20,6 +17,8 @@ public class MyLogger implements Logger {
     private static final String GREEN = "\u001B[32m";
     private static final String BLUE = "\u001B[34m";
     private static final String CYAN = "\u001B[36m";
+    private final String className;
+    private final LogLevel logLevel;
 
     public MyLogger(Class<?> classs) {
         this.className = classs.getSimpleName();
@@ -92,16 +91,37 @@ public class MyLogger implements Logger {
 
     }
 
+    //    Handles {} placeholders and replaces them with arguments
     private String formatMessage(String message, Object... args) {
         if (args == null || args.length == 0) {
             return message;
         }
 
-        String result = message;
-        for (Object arg : args) {
-            result = result.replaceFirst("\\{\\}", String.valueOf(arg));
+        // Use StringBuilder for efficient string manipulation
+        StringBuilder result = new StringBuilder();
+        int argIndex = 0;
+        int length = message.length();
+
+        for (int i = 0; i < length; i++) {
+            char current = message.charAt(i);
+
+            // Check for placeholder {}
+            if (current == '{' && i + 1 < length && message.charAt(i + 1) == '}') {
+                // Replace with argument if available
+                if (argIndex < args.length) {
+                    result.append(String.valueOf(args[argIndex]));
+                    argIndex++;
+                } else {
+                    // No more arguments, keep placeholder
+                    result.append("{}");
+                }
+                i++; // Skip the next '}'
+            } else {
+                result.append(current);
+            }
         }
-        return result;
+
+        return result.toString();
     }
 
     private void writeToFile(String message) {

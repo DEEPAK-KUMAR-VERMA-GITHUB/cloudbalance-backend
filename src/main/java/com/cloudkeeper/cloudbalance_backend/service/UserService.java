@@ -2,35 +2,78 @@ package com.cloudkeeper.cloudbalance_backend.service;
 
 import com.cloudkeeper.cloudbalance_backend.dto.request.UserCreateRequest;
 import com.cloudkeeper.cloudbalance_backend.dto.request.UserUpdateRequest;
+import com.cloudkeeper.cloudbalance_backend.dto.response.PagedResponse;
 import com.cloudkeeper.cloudbalance_backend.dto.response.UserResponse;
 import com.cloudkeeper.cloudbalance_backend.entity.User;
 import com.cloudkeeper.cloudbalance_backend.entity.UserRole;
 import com.cloudkeeper.cloudbalance_backend.exception.ResourceNotFoundException;
+import com.cloudkeeper.cloudbalance_backend.logging.Logger;
+import com.cloudkeeper.cloudbalance_backend.logging.LoggerFactory;
 import com.cloudkeeper.cloudbalance_backend.repository.UserRepository;
-import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final Logger logger = LoggerFactory.getLogger(UserService.class);
 
     @Transactional(readOnly = true)
-    public List<UserResponse> getAllUsers() {
-        return userRepository.findAll().stream()
-                .map(this::mapToResponse).toList();
+    public PagedResponse<UserResponse> getAllUsers(
+            int page,
+            int size,
+            String sortBy,
+            String sortDir,
+            String search,
+            Boolean active,
+            UserRole role
+    ) {
+        Sort sort = sortDir.equalsIgnoreCase("desc")
+                ? Sort.by(sortBy).descending()
+                : Sort.by(sortBy).ascending();
+
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        Page<User> userPage;
+
+        if (search != null && !search.isBlank()) {
+            userPage = userRepository.searchByNameOrEmail(search.trim(), pageable);
+        } else if (active != null && role != null) {
+            userPage = userRepository.findByActiveAndRole(active, role, pageable);
+        } else if (active != null) {
+            userPage = userRepository.findByActive(active, pageable);
+        } else if (role != null) {
+            userPage = userRepository.findByRole(role, pageable);
+        } else {
+            userPage = userRepository.findAll(pageable);
+        }
+
+        var content = userPage.getContent()
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
+
+        return PagedResponse.<UserResponse>builder()
+                .content(content)
+                .page(userPage.getNumber())
+                .size(userPage.getSize())
+                .totalElements(userPage.getTotalElements())
+                .first(userPage.isFirst())
+                .last(userPage.isLast())
+                .build();
     }
 
     @Transactional(readOnly = true)
@@ -63,7 +106,7 @@ public class UserService {
                 .build();
 
         User savedUser = userRepository.save(user);
-        log.info("Created user : {} with temp password : {}", savedUser.getEmail(), tempPassword);
+        logger.info("Created user : {} with temp password : {}", savedUser.getEmail(), tempPassword);
 
         return mapToResponse(savedUser);
     }
@@ -98,7 +141,7 @@ public class UserService {
             throw new ResourceNotFoundException("User not found with id : " + id);
         }
         userRepository.deleteById(id);
-        log.info("Deleted user with id : {}", id);
+        logger.info("Deleted user with id : {}", id);
     }
 
 
@@ -121,4 +164,23 @@ public class UserService {
                 .build();
     }
 
+    public UserResponse deactivateUser(Long userId) {
+        User user = userRepository.findById(userId).orElseThrow(() -> new ResourceNotFoundException("User not found with id : " + userId));
+        if (!Boolean.FALSE.equals(user.getActive())) {
+            user.setActive(false);
+        }
+        User savedUser = userRepository.save(user);
+        logger.info("Deactivated user with id : {}", userId);
+        return mapToResponse(savedUser);
+    }
+
+    public UserResponse activateUser(Long userId) {
+        User user = userRepository.findById(userId).orElseThrow(() -> new ResourceNotFoundException("User not found with id : " + userId));
+        if (!Boolean.TRUE.equals(user.getActive())) {
+            user.setActive(true);
+        }
+        User savedUser = userRepository.save(user);
+        logger.info("Activated user with id : {}", userId);
+        return mapToResponse(savedUser);
+    }
 }

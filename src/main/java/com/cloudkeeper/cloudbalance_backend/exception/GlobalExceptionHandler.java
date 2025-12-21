@@ -16,11 +16,13 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.util.HashMap;
 import java.util.Map;
 
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
     private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
+    // 404 Not Found -> Entity not found
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ApiResponse<Void>> handleResourceNotFoundException(ResourceNotFoundException ex) {
         logger.error("Resource not found: {}", ex.getMessage());
@@ -32,6 +34,7 @@ public class GlobalExceptionHandler {
         );
     }
 
+    // 401 Unauthorized -> Invalid login
     @ExceptionHandler({InvalidCredentialsException.class, BadCredentialsException.class})
     public ResponseEntity<ApiResponse<Void>> handleInvalidCredentials(Exception ex) {
         logger.error("Authentication failed: {}", ex.getMessage());
@@ -43,6 +46,7 @@ public class GlobalExceptionHandler {
         );
     }
 
+    // 403 Forbidden -> Insufficient Permissions
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiResponse<Void>> handleAccessDenied(AccessDeniedException ex) {
         logger.error("Access denied: {}", ex.getMessage());
@@ -54,6 +58,7 @@ public class GlobalExceptionHandler {
         );
     }
 
+    // 400 Bad request
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiResponse<Void>> handleIllegalArgument(IllegalArgumentException ex) {
         logger.error("Invalid argument: {}", ex.getMessage());
@@ -65,6 +70,7 @@ public class GlobalExceptionHandler {
         );
     }
 
+    // 400 Bad Request
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Map<String, String>>> handleValidationExceptions(
             MethodArgumentNotValidException ex) {
@@ -84,6 +90,20 @@ public class GlobalExceptionHandler {
         );
     }
 
+    // 409 Conflict -> Duplicate entity
+    @ExceptionHandler(ResourceAlreadyExistsExceptions.class)
+    public ResponseEntity<ApiResponse<Void>> handleResourceExists(ResourceAlreadyExistsExceptions ex){
+        logger.error("Duplicate Entity : ",ex);
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(
+                ApiResponse.<Void>builder()
+                        .success(false)
+                        .error("A resource already exists.")
+                        .build()
+        );
+    }
+
+
+    // 500 Internal Server Error -> Unexpected errors
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGlobalException(Exception ex) {
         logger.error("Unexpected error: ", ex);
@@ -94,4 +114,16 @@ public class GlobalExceptionHandler {
                         .build()
         );
     }
+
+    @ExceptionHandler(TokenRefreshException.class)
+    public ResponseEntity<ApiResponse<Void>> handleTokenRefreshException(TokenRefreshException ex) {
+        logger.error("Token refresh error : {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
+                ApiResponse.<Void>builder()
+                        .success(false)
+                        .error(ex.getMessage())
+                        .build()
+        );
+    }
+
 }

@@ -56,4 +56,8 @@ public class User {
     @UpdateTimestamp
     private LocalDateTime updatedAt;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private Integer tokenVersion = 0;
+
 }
