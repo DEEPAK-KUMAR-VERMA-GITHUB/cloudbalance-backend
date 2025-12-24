@@ -162,9 +162,7 @@ public class AuthService {
 
     @Transactional
     public void logout(String email, String accessToken, HttpServletRequest httpServletRequest) {
-        User user = userRepository.findByEmail(email).orElseThrow(() -> {
-            throw new InvalidCredentialsException("User not found");
-        });
+        User user = userRepository.findByEmail(email).orElseThrow(() -> new InvalidCredentialsException("User not found"));
 
         // Blacklist current access token
         tokenBlackListService.blacklistToken(accessToken, jwtService.getAccessTokenExpiration());

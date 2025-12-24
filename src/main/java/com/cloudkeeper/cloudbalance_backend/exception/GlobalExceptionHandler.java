@@ -91,8 +91,8 @@ public class GlobalExceptionHandler {
     }
 
     // 409 Conflict -> Duplicate entity
-    @ExceptionHandler(ResourceAlreadyExistsExceptions.class)
-    public ResponseEntity<ApiResponse<Void>> handleResourceExists(ResourceAlreadyExistsExceptions ex){
+    @ExceptionHandler(ResourceAlreadyExistsException.class)
+    public ResponseEntity<ApiResponse<Void>> handleResourceExists(ResourceAlreadyExistsException ex){
         logger.error("Duplicate Entity : ",ex);
         return ResponseEntity.status(HttpStatus.CONFLICT).body(
                 ApiResponse.<Void>builder()

@@ -2,6 +2,7 @@ package com.cloudkeeper.cloudbalance_backend.service;
 
 import com.cloudkeeper.cloudbalance_backend.entity.User;
 import com.cloudkeeper.cloudbalance_backend.repository.UserRepository;
+import lombok.Getter;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.Cacheable;
@@ -20,13 +21,16 @@ public class AppUserDetailsService implements UserDetailsService {
 
     private final UserRepository userRepository;
 
+    @Getter
+    private Long id;
+
     @Override
     @Cacheable(value = "userDetails", key = "#username")
     public UserDetails loadUserByUsername(@NonNull String email) throws UsernameNotFoundException {
         // load from DB
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with email : " + email));
-
+        this.id = user.getId();
         return org.springframework.security.core.userdetails.User.builder()
                 .username(user.getEmail())
                 .password(user.getPassword())
