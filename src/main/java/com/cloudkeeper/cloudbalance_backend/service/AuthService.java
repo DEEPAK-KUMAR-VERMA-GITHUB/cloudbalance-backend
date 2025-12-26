@@ -1,7 +1,6 @@
 package com.cloudkeeper.cloudbalance_backend.service;
 
 import com.cloudkeeper.cloudbalance_backend.dto.request.LoginRequest;
-import com.cloudkeeper.cloudbalance_backend.dto.request.TokenRefreshRequest;
 import com.cloudkeeper.cloudbalance_backend.dto.response.AuthResponse;
 import com.cloudkeeper.cloudbalance_backend.entity.RefreshToken;
 import com.cloudkeeper.cloudbalance_backend.entity.User;
@@ -9,13 +8,17 @@ import com.cloudkeeper.cloudbalance_backend.entity.UserSession;
 import com.cloudkeeper.cloudbalance_backend.exception.InvalidCredentialsException;
 import com.cloudkeeper.cloudbalance_backend.logging.Logger;
 import com.cloudkeeper.cloudbalance_backend.logging.LoggerFactory;
-import com.cloudkeeper.cloudbalance_backend.logging.annotation.Loggable;
+import com.cloudkeeper.cloudbalance_backend.repository.RefreshTokenRepository;
 import com.cloudkeeper.cloudbalance_backend.repository.UserRepository;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,23 +38,29 @@ public class AuthService {
     private final SessionManagementService sessionManagementService;
     private final TokenBlackListService tokenBlackListService;
 
+    @Value("${jwt.access-token-expiration}")
+    private long accessTokenExpiration;
+
+    @Value("${jwt.refresh-token-expiration}")
+    private long refreshTokenExpiration;
+
     @Transactional
-    @Loggable(logArgs = false, logResult = true)
-    public AuthResponse login(LoginRequest request, HttpServletRequest httpServletRequest) {
+    public AuthResponse login(LoginRequest request, HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) {
         try {
+            logger.info("Login attempt for email :{}", request.getEmail());
+
             // try to authenticate user
-            authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
+            Authentication authentication = authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
             logger.info("Authentication successful for: {}", request.getEmail());
             // load user details
             UserDetails userDetails = appUserDetailsService.loadUserByUsername(request.getEmail());
-            // update last login
             User user = userRepository.findByEmail(request.getEmail()).orElseThrow(() -> new InvalidCredentialsException("User not found"));
 
             // check if user has active session (single device login)
             boolean hasActiveSession = refreshTokenService.hasActiveSession(user);
 
             if (hasActiveSession) {
-                // return response indicating active session exists
+                logger.warn("User already has active session : {}", user.getEmail());
                 return AuthResponse.builder()
                         .hasActiveSession(true)
                         .email(user.getEmail())
@@ -62,20 +71,27 @@ public class AuthService {
             // extract device info and ip
             String deviceInfo = extractDeviceInfo(httpServletRequest);
             String ipAddress = extractIpAddress(httpServletRequest);
+            // generate tokens
+            String accessToken = jwtService.generateAccessToken(userDetails, user.getId(), user.getTokenVersion());
+            RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getId(), deviceInfo, ipAddress);
 
             // initialize token version in redis if not exists
             if (tokenBlackListService.getUserTokenVersion(user.getId()) == null) {
                 tokenBlackListService.setUserTokenVersion(user.getId(), user.getTokenVersion());
             }
 
-            // generate tokens
-            String accessToken = jwtService.generateAccessToken(userDetails, user.getId(), user.getTokenVersion());
-
-            // create refresh token
-            RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getId(), deviceInfo, ipAddress);
-
             // create session
             UserSession session = sessionManagementService.createSession(user, deviceInfo, ipAddress);
+
+            logger.info("=== SETTING COOKIES ===");
+            logger.info("Access Token: {}...", accessToken.substring(0, 20));
+            logger.info("Refresh Token: {}", refreshToken.getToken());
+
+            // set access token in httpOnly cookie
+            setAccessTokenCookie(httpServletResponse, accessToken);
+
+            // set refresh token in httpOnly cookie
+            setRefreshTokenCookie(httpServletResponse, refreshToken.getToken());
 
             // update last login
             user.setLastLogin(LocalDateTime.now());
@@ -88,7 +104,7 @@ public class AuthService {
 
             return AuthResponse.builder()
                     .accessToken(accessToken)
-                    .refreshToken(refreshToken.getToken())
+                    .sessionId(session.getSessionId())
                     .type("Bearer")
                     .name(user.getFirstName() + " " + user.getLastName())
                     .email(user.getEmail())
@@ -97,11 +113,9 @@ public class AuthService {
                     .hasActiveSession(false)
                     .build();
 
-        } catch (BadCredentialsException e) {
+        } catch (BadCredentialsException | InvalidCredentialsException e) {
             logger.error("Invalid credentials for email: {}", request.getEmail());
             throw new InvalidCredentialsException("Invalid email or password");
-        } catch (InvalidCredentialsException e) {
-            throw e;
         } catch (Exception e) {
             logger.error("Unexpected error during login for email: {}", request.getEmail(), e);
             throw new RuntimeException("Login failed due to unexpected error", e);
@@ -109,10 +123,10 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthResponse forceLogin(LoginRequest request, HttpServletRequest httpServletRequest) {
-        User user = userRepository.findByEmail(request.getEmail()).orElseThrow(() -> {
-            throw new InvalidCredentialsException("User not found");
-        });
+    public AuthResponse forceLogin(LoginRequest request, HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) {
+        User user = userRepository.findByEmail(request.getEmail()).orElseThrow(() ->
+                new InvalidCredentialsException("User not found")
+        );
 
         // revoke all existing sessions and tokens
         refreshTokenService.revokeAllUserTokens(user);
@@ -120,29 +134,28 @@ public class AuthService {
 
         logger.info("Force logout completed for user: {}", user.getEmail());
 
-        return login(request, httpServletRequest);
+        return login(request, httpServletRequest, httpServletResponse);
     }
 
     @Transactional
-    public AuthResponse refreshToken(TokenRefreshRequest request, HttpServletRequest httpServletRequest) {
-        String requestRefreshToken = request.getRefreshToken();
+    public AuthResponse refreshToken(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) {
+        // extract refresh token from cookie
+        String requestRefreshToken = extractRefreshTokenFromCookie(httpServletRequest);
+
+        if (requestRefreshToken == null) throw new InvalidCredentialsException("Refresh token not found.");
+
+        // validate refresh token
         RefreshToken refreshToken = refreshTokenService.findByToken(requestRefreshToken);
         refreshToken = refreshTokenService.verifyRefreshExpiration(refreshToken);
 
         User user = refreshToken.getUser();
         UserDetails userDetails = appUserDetailsService.loadUserByUsername(user.getEmail());
 
-        // check session validity
-        String sessionId = httpServletRequest.getSession().getId();
-        if (!sessionManagementService.isSessionValid(sessionId)) {
-            throw new InvalidCredentialsException("Session expired. Please login again.");
-        }
-
-        // update session activity
-        sessionManagementService.updateSessionActivity(sessionId);
-
         // generate new access token
         String accessToken = jwtService.generateAccessToken(userDetails, user.getId(), user.getTokenVersion());
+
+        // set new access token in cookie
+        setAccessTokenCookie(httpServletResponse, accessToken);
 
         logger.info("Token refreshed for user: {}", user.getEmail());
 
@@ -150,7 +163,6 @@ public class AuthService {
 
         return AuthResponse.builder()
                 .accessToken(accessToken)
-                .refreshToken(requestRefreshToken)
                 .type("Bearer")
                 .name(user.getFirstName() + " " + user.getLastName())
                 .email(user.getEmail())
@@ -161,19 +173,97 @@ public class AuthService {
     }
 
     @Transactional
-    public void logout(String email, String accessToken, HttpServletRequest httpServletRequest) {
+    public void logout(String email, HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) {
         User user = userRepository.findByEmail(email).orElseThrow(() -> new InvalidCredentialsException("User not found"));
 
-        // Blacklist current access token
-        tokenBlackListService.blacklistToken(accessToken, jwtService.getAccessTokenExpiration());
+        // extract access token
+        String accessToken = extractAccessToken(httpServletRequest);
 
-        // revoke all refresh tokens
-        refreshTokenService.revokeAllUserTokens(user);
-        // invalidate session
-        String sessionId = httpServletRequest.getSession().getId();
-        sessionManagementService.invalidateSession(sessionId);
+        if (accessToken != null) {
+            // Blacklist current access token
+            tokenBlackListService.blacklistToken(accessToken, jwtService.getAccessTokenExpiration());
 
-        logger.info("User logged out : {}", email);
+            // revoke all refresh tokens
+            refreshTokenService.revokeAllUserTokens(user);
+            // invalidate session
+            String sessionId = httpServletRequest.getSession(false) != null ? httpServletRequest.getSession(false).getId() : null;
+
+            if (sessionId != null) {
+                sessionManagementService.invalidateSession(sessionId);
+            }
+
+            // clear cookies
+            clearAuthCookies(httpServletResponse);
+
+            logger.info("User logged out : {}", email);
+        }
+    }
+
+    private void setRefreshTokenCookie(HttpServletResponse httpServletResponse, String token) {
+        Cookie cookie = new Cookie("refresh_token", token);
+        cookie.setHttpOnly(true);
+        cookie.setSecure(false); // TODO: set to true in production
+        cookie.setPath("/api/v1/auth");
+        cookie.setMaxAge((int) (refreshTokenExpiration / 1000));
+
+        httpServletResponse.addCookie(cookie);
+    }
+
+    private void setAccessTokenCookie(HttpServletResponse httpServletResponse, String accessToken) {
+        Cookie cookie = new Cookie("access_token", accessToken);
+        cookie.setHttpOnly(true);
+        cookie.setSecure(false); // TODO: set to true in production
+        cookie.setPath("/api");
+        cookie.setMaxAge((int) (accessTokenExpiration / 1000));
+
+        httpServletResponse.addCookie(cookie);
+    }
+
+    private String extractAccessToken(HttpServletRequest httpServletRequest) {
+        // try header first (for mobile apps)
+        String authHeader = httpServletRequest.getHeader("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            return authHeader.substring(7);
+        }
+
+        // try cookie (for web browsers)
+        if (httpServletRequest.getCookies() != null) {
+            for (Cookie cookie : httpServletRequest.getCookies()) {
+                if ("access_token".equals(cookie.getName())) {
+                    return cookie.getValue();
+                }
+            }
+        }
+        return null;
+    }
+
+    private String extractRefreshTokenFromCookie(HttpServletRequest httpServletRequest) {
+        if (httpServletRequest.getCookies() != null) {
+            for (Cookie cookie : httpServletRequest.getCookies()) {
+                System.out.println("Cookie : - " + cookie.getName());
+                if ("refresh_token".equals(cookie.getName())) {
+                    return cookie.getValue();
+                }
+            }
+        }
+        return null;
+    }
+
+    private void clearAuthCookies(HttpServletResponse httpServletResponse) {
+        Cookie accessCookie = new Cookie("access_token", null);
+        accessCookie.setHttpOnly(true);
+        accessCookie.setSecure(false); // TODO: set to true in production
+        accessCookie.setPath("/api");
+        accessCookie.setMaxAge(0);
+
+        Cookie refreshCookie = new Cookie("refresh_token", null);
+        refreshCookie.setHttpOnly(true);
+        refreshCookie.setSecure(false); // TODO: set to true in production
+        refreshCookie.setPath("/api/v1/auth");
+        refreshCookie.setMaxAge(0);
+
+        httpServletResponse.addCookie(accessCookie);
+        httpServletResponse.addCookie(refreshCookie);
     }
 
     private String extractIpAddress(HttpServletRequest request) {

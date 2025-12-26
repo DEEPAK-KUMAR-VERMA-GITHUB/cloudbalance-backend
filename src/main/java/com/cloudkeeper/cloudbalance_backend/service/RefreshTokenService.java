@@ -5,6 +5,7 @@ import com.cloudkeeper.cloudbalance_backend.entity.User;
 import com.cloudkeeper.cloudbalance_backend.exception.TokenRefreshException;
 import com.cloudkeeper.cloudbalance_backend.logging.Logger;
 import com.cloudkeeper.cloudbalance_backend.logging.LoggerFactory;
+import com.cloudkeeper.cloudbalance_backend.logging.annotation.Loggable;
 import com.cloudkeeper.cloudbalance_backend.repository.RefreshTokenRepository;
 import com.cloudkeeper.cloudbalance_backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -13,8 +14,10 @@ import org.springframework.stereotype.Repository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.swing.text.html.Option;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -47,7 +50,7 @@ public class RefreshTokenService {
         return refreshTokenRepository.save(refreshToken);
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public RefreshToken verifyRefreshExpiration(RefreshToken refreshToken) {
         if (refreshToken.getExpiryDate().compareTo(Instant.now()) < 0) {
             refreshTokenRepository.delete(refreshToken);
@@ -55,16 +58,14 @@ public class RefreshTokenService {
         }
 
         if (refreshToken.getRevoked()) {
+            logger.warn("Refresh token already revoked : {}", refreshToken.getToken());
             throw new TokenRefreshException("Refresh token has been revoked.");
         }
-
-        // update last activity time
-        refreshToken.setLastActivityTime(Instant.now());
-        refreshTokenRepository.save(refreshToken);
 
         return refreshToken;
     }
 
+    @Transactional(readOnly = true)
     public RefreshToken findByToken(String token) {
         return refreshTokenRepository.findByToken(token).orElseThrow(() -> new TokenRefreshException("Refresh token not found."));
     }
@@ -96,6 +97,18 @@ public class RefreshTokenService {
     public boolean hasActiveSession(User user) {
         List<RefreshToken> activeTokens = refreshTokenRepository.findActiveTokensByUser(user);
         return !activeTokens.isEmpty();
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<RefreshToken> findLatestValidRefreshToken(Long userId){
+        Optional<RefreshToken> refreshToken = refreshTokenRepository.findTopByUserIdAndRevokedFalseOrderByCreatedAtDesc(userId);
+
+        if(refreshToken.isEmpty()){
+            logger.warn("No valid refresh token found for user: {}", userId);
+            return Optional.empty();
+        }
+
+        return refreshToken;
     }
 
 }

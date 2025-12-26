@@ -37,6 +37,22 @@ public class SessionManagementService {
         // deactivate all existing sessions (Single device login only)
         sessionRepository.deactivateAllSessionsByUser(user);
 
+        // check if this sessionId already exists (for this or any user)
+        Optional<UserSession> existing = sessionRepository.findBySessionId(sessionId);
+
+        // if existing session present update it instead of inserting new row
+        if(existing.isPresent()){
+            UserSession s = existing.get();
+            s.setUser(user);
+            s.setActive(true);
+            s.setLoginTime(Instant.now());
+            s.setIpAddress(ipAddress);
+            s.setDeviceInfo(deviceInfo);
+            logger.info("Reusing existing session row for id : {}", sessionId);
+            return sessionRepository.save(s);
+        }
+
+        // otherwise create new
         UserSession userSession = UserSession.builder()
                 .user(user)
                 .sessionId(sessionId)
@@ -118,6 +134,17 @@ public class SessionManagementService {
 
     public List<UserSession> getActiveUserSessions(User user) {
         return sessionRepository.findActiveSessionsByUser(user);
+    }
+
+    @Loggable
+    public Optional<UserSession> findActiveSessionById(String sessionId){
+        Optional<UserSession> sessionOpt = sessionRepository.findBySessionIdAndActiveTrue(sessionId);
+        if(sessionOpt.isEmpty()){
+            logger.warn("Active session not found for ID : {}", sessionId);
+        }else{
+            logger.debug("Active session found : {} for user: {}", sessionId, sessionOpt.get().getUser().getEmail());
+        }
+        return sessionOpt;
     }
 
     // cleanup inactive sessions in every 30 minutes

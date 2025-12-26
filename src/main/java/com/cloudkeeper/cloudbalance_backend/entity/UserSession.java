@@ -41,4 +41,7 @@ public class UserSession {
     @Column(nullable = false)
     private Boolean active = true;
 
+    public Long getUserId() {
+        return user.getId();
+    }
 }
