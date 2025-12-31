@@ -1,6 +1,7 @@
 package com.cloudkeeper.cloudbalance_backend.entity;
 
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -8,6 +9,8 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "aws_accounts")
@@ -40,11 +43,19 @@ public class AwsAccount {
     @UpdateTimestamp
     private LocalDateTime updateAt;
 
-    @PrePersist
-    @PreUpdate
-    private void ensureActive(){
-        if(this.active == null){
-            this.active = true;
-        }
+    @OneToMany(mappedBy = "awsAccount", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @JsonIgnore
+    @Builder.Default
+    private List<AccountAssignment> assignments = new ArrayList<>();
+
+    // helper methods
+    public void addAssignment(AccountAssignment assignment){
+        assignments.add(assignment);
+        assignment.setAwsAccount(this);
+    }
+
+    public void removeAssignment(AccountAssignment assignment){
+        assignments.remove(assignment);
+        assignment.setAwsAccount(null);
     }
 }

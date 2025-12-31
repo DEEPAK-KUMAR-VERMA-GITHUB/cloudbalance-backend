@@ -5,6 +5,7 @@ import com.cloudkeeper.cloudbalance_backend.dto.response.ApiResponse;
 import com.cloudkeeper.cloudbalance_backend.dto.response.AuthResponse;
 import com.cloudkeeper.cloudbalance_backend.logging.Logger;
 import com.cloudkeeper.cloudbalance_backend.logging.LoggerFactory;
+import com.cloudkeeper.cloudbalance_backend.logging.annotation.Loggable;
 import com.cloudkeeper.cloudbalance_backend.service.AuthService;
 import com.cloudkeeper.cloudbalance_backend.service.JwtService;
 import com.cloudkeeper.cloudbalance_backend.service.TokenBlackListService;
@@ -33,6 +34,7 @@ public class AuthController {
 
     @PostMapping("/login")
     @Operation(summary = "Login user", description = "Authenticate user and return jwt token")
+    @Loggable
     public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest request, HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) {
         AuthResponse authResponse = authService.login(request, httpServletRequest, httpServletResponse);
 

@@ -82,6 +82,7 @@ public class UserService {
         return mapToResponse(user);
     }
 
+    @Transactional
     public UserResponse createUser(UserCreateRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new IllegalArgumentException("Email already exists : " + request.getEmail());

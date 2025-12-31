@@ -1,5 +1,6 @@
 package com.cloudkeeper.cloudbalance_backend.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -9,7 +10,9 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 @Builder
@@ -59,5 +62,21 @@ public class User {
     @Column(nullable = false)
     @Builder.Default
     private Integer tokenVersion = 0;
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @JsonIgnore
+    @Builder.Default
+    private List<AccountAssignment> accountAssignments = new ArrayList<>();
+
+    // helper methods
+    public void addAccountAssignment(AccountAssignment assignment){
+        accountAssignments.add(assignment);
+        assignment.setUser(this);
+    }
+
+    public void removeAccountAssignment(AccountAssignment assignment){
+        accountAssignments.remove(assignment);
+        assignment.setUser(null);
+    }
 
 }

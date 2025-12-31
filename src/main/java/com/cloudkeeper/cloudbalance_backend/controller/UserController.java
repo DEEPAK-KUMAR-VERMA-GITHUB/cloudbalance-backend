@@ -6,6 +6,7 @@ import com.cloudkeeper.cloudbalance_backend.dto.response.ApiResponse;
 import com.cloudkeeper.cloudbalance_backend.dto.response.PagedResponse;
 import com.cloudkeeper.cloudbalance_backend.dto.response.UserResponse;
 import com.cloudkeeper.cloudbalance_backend.entity.UserRole;
+import com.cloudkeeper.cloudbalance_backend.logging.annotation.Loggable;
 import com.cloudkeeper.cloudbalance_backend.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -104,6 +105,7 @@ public class UserController {
             }
     )
     public ResponseEntity<ApiResponse<UserResponse>> createUser(@Valid @RequestBody UserCreateRequest request) {
+
         UserResponse user = userService.createUser(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(
                 ApiResponse.<UserResponse>builder()

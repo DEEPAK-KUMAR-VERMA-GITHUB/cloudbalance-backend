@@ -6,29 +6,30 @@ import com.cloudkeeper.cloudbalance_backend.dto.request.AwsAccountCreateRequest;
 import com.cloudkeeper.cloudbalance_backend.dto.response.ApiResponse;
 import com.cloudkeeper.cloudbalance_backend.dto.response.AwsAccountResponse;
 import com.cloudkeeper.cloudbalance_backend.entity.AwsAccount;
-import com.cloudkeeper.cloudbalance_backend.logging.annotation.Loggable;
+import com.cloudkeeper.cloudbalance_backend.logging.Logger;
+import com.cloudkeeper.cloudbalance_backend.logging.LoggerFactory;
 import com.cloudkeeper.cloudbalance_backend.service.AccountAssignmentService;
 import com.cloudkeeper.cloudbalance_backend.service.AwsAccountService;
-import io.jsonwebtoken.Jwt;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/accounts")
+@RequestMapping("/accounts")
 @RequiredArgsConstructor
 @SecurityRequirement(name = "bearerAuth")
 public class AwsAccountController {
     private final AwsAccountService awsAccountService;
     private final AccountAssignmentService assignmentService;
+    private final Logger logger = LoggerFactory.getLogger(AwsAccountController.class);
 
     // ADMIN : Create new AWS account
     @PostMapping
@@ -48,10 +49,11 @@ public class AwsAccountController {
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<List<AwsAccountResponse>>> getAllAwsAccounts() {
+        List<AwsAccountResponse> accounts = awsAccountService.getAllAwsAccounts();
         return ResponseEntity.ok(
                 ApiResponse.<List<AwsAccountResponse>>builder()
                         .success(true)
-                        .data(awsAccountService.getAllAwsAccounts())
+                        .data(accounts)
                         .build()
         );
     }
@@ -84,31 +86,48 @@ public class AwsAccountController {
 
     // Customer: Get my assigned accounts
     @GetMapping("/my-accounts")
-    @PreAuthorize("hasRole('CUSTOMER')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<List<AwsAccount>>> getMyAccounts(Authentication auth) {
+        // extract userId from authentication
+        Long userId = extractUserId(auth);
+        logger.debug("User Id extracted : {}", userId);
 
-        System.out.println("=== FULL PRINCIPAL DEBUG ===");
+        List<AwsAccount> accounts = awsAccountService.getCustomerAccounts(userId);
+
+        return ResponseEntity.ok(
+                ApiResponse.<List<AwsAccount>>builder()
+                        .success(true)
+                        .message("Your accounts retrieved successfully.")
+                        .data(accounts)
+                        .build()
+        );
+    }
+
+    private Long extractUserId(Authentication auth) {
         Object principal = auth.getPrincipal();
+        if (principal != null) {
+            logger.debug("Principal type : {}", principal.getClass().getName());
 
-        System.out.println("1. Principal TYPE: " + principal.getClass().getName());
-        System.out.println("2. Principal TOSTRING: " + principal);
-        System.out.println("3. Principal methods:");
-
-        // List ALL methods available
-        java.lang.reflect.Method[] methods = principal.getClass().getMethods();
-        for (java.lang.reflect.Method method : methods) {
-            if (method.getName().startsWith("get") || method.getName().equals("getId")) {
-                System.out.println("   → " + method.getName());
+            // try user principal first from my custom implementation
+            if (principal instanceof UserPrincipal) {
+                UserPrincipal userPrincipal = (UserPrincipal) principal;
+                return userPrincipal.getId();
             }
+
+            // try spring security user details
+            if (principal instanceof UserDetails) {
+                UserDetails userDetails = (UserDetails) principal;
+                String username = userDetails.getUsername();
+                // fetch userId from database
+                return awsAccountService.getUserIdByEmail(username);
+            }
+
         }
-
-        // Try to get username (always works)
+        // fallback : get from authentication name
         String username = auth.getName();
-        System.out.println("4. Username from auth.getName(): " + username);
+        logger.debug("Extracting userId from username : {}", username);
 
-        System.out.println("=== END DEBUG ===");
-
-        return ResponseEntity.ok().build();
+        return awsAccountService.getUserIdByEmail(username);
     }
 
 }
