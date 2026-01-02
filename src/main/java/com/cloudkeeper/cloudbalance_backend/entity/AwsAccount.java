@@ -58,4 +58,13 @@ public class AwsAccount {
         assignments.remove(assignment);
         assignment.setAwsAccount(null);
     }
+
+    // ensure that account is active
+    @PrePersist
+    @PreUpdate
+    public void ensureActive(){
+        if(this.getActive() == null){
+            this.setActive(Boolean.TRUE);
+        }
+    }
 }

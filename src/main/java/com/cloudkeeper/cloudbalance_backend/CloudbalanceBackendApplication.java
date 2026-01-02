@@ -10,6 +10,8 @@ public class CloudbalanceBackendApplication {
 
     public static void main(String[] args) {
         SpringApplication.run(CloudbalanceBackendApplication.class, args);
+
+
     }
 
 }

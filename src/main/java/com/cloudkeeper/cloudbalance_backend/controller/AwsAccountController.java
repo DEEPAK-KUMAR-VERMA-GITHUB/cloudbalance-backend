@@ -6,10 +6,13 @@ import com.cloudkeeper.cloudbalance_backend.dto.request.AwsAccountCreateRequest;
 import com.cloudkeeper.cloudbalance_backend.dto.response.ApiResponse;
 import com.cloudkeeper.cloudbalance_backend.dto.response.AwsAccountResponse;
 import com.cloudkeeper.cloudbalance_backend.entity.AwsAccount;
+import com.cloudkeeper.cloudbalance_backend.helper.roleAnnotations.AdminOnly;
+import com.cloudkeeper.cloudbalance_backend.helper.roleAnnotations.AdminOrCustomer;
 import com.cloudkeeper.cloudbalance_backend.logging.Logger;
 import com.cloudkeeper.cloudbalance_backend.logging.LoggerFactory;
 import com.cloudkeeper.cloudbalance_backend.service.AccountAssignmentService;
 import com.cloudkeeper.cloudbalance_backend.service.AwsAccountService;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -33,7 +36,8 @@ public class AwsAccountController {
 
     // ADMIN : Create new AWS account
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @AdminOnly
+    @Operation(summary = "Create AWS account", description = "Admin creates a new AWS account.")
     public ResponseEntity<ApiResponse<AwsAccountResponse>> createAwsAccount(@Valid @RequestBody AwsAccountCreateRequest request) {
         AwsAccountResponse response = awsAccountService.createAwsAccount(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(
@@ -47,7 +51,7 @@ public class AwsAccountController {
 
     // ADMIN: List all AWS accounts
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @AdminOnly
     public ResponseEntity<ApiResponse<List<AwsAccountResponse>>> getAllAwsAccounts() {
         List<AwsAccountResponse> accounts = awsAccountService.getAllAwsAccounts();
         return ResponseEntity.ok(
@@ -60,7 +64,7 @@ public class AwsAccountController {
 
     // ADMIN: Assign account to customer
     @PostMapping("/assign")
-    @PreAuthorize("hasRole('ADMIN')")
+    @AdminOnly
     public ResponseEntity<ApiResponse<Void>> assignAccount(@RequestBody AccountAssignmentRequest request) {
         assignmentService.assignAccount(request.getAwsAccountId(), request.getUserId());
         return ResponseEntity.ok(
@@ -73,7 +77,7 @@ public class AwsAccountController {
 
     // ADMIN: Assign account to customer
     @PostMapping("/unassign")
-    @PreAuthorize("hasRole('ADMIN')")
+    @AdminOnly
     public ResponseEntity<ApiResponse<Void>> unassignAccount(@RequestBody AccountAssignmentRequest request) {
         assignmentService.unassignAccount(request.getAwsAccountId(), request.getUserId());
         return ResponseEntity.ok(
@@ -86,7 +90,7 @@ public class AwsAccountController {
 
     // Customer: Get my assigned accounts
     @GetMapping("/my-accounts")
-    @PreAuthorize("hasRole('ADMIN')")
+    @AdminOrCustomer
     public ResponseEntity<ApiResponse<List<AwsAccount>>> getMyAccounts(Authentication auth) {
         // extract userId from authentication
         Long userId = extractUserId(auth);
@@ -99,6 +103,36 @@ public class AwsAccountController {
                         .success(true)
                         .message("Your accounts retrieved successfully.")
                         .data(accounts)
+                        .build()
+        );
+    }
+
+    @PatchMapping("/{accountId}/activate")
+    @AdminOnly
+    @Operation(summary = "Activate AWS account", description = "Admin activates an AWS account.")
+    public ResponseEntity<ApiResponse<Void>> activateAccount(@PathVariable("accountId") Long accountId) {
+        logger.info("Activate AWS account request : {}", accountId);
+
+        awsAccountService.activateAccount(accountId);
+        return ResponseEntity.ok(
+                ApiResponse.<Void>builder()
+                        .success(true)
+                        .message("Account activated successfully.")
+                        .build()
+        );
+    }
+
+    @PatchMapping("/{accountId}/deactivate")
+    @AdminOnly
+    @Operation(summary = "Deactivate AWS account", description = "Admin deactivates an AWS account.")
+    public ResponseEntity<ApiResponse<Void>> deactivateAccount(@PathVariable("accountId") Long accountId) {
+        logger.info("Deactivate AWS account request : {}", accountId);
+
+        awsAccountService.deactivateAccount(accountId);
+        return ResponseEntity.ok(
+                ApiResponse.<Void>builder()
+                        .success(true)
+                        .message("Account deactivated successfully.")
                         .build()
         );
     }
