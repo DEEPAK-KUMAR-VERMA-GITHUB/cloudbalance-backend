@@ -3,7 +3,6 @@ package com.cloudkeeper.cloudbalance_backend.exception;
 import com.cloudkeeper.cloudbalance_backend.dto.response.ApiResponse;
 import com.cloudkeeper.cloudbalance_backend.logging.Logger;
 import com.cloudkeeper.cloudbalance_backend.logging.LoggerFactory;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -101,6 +100,41 @@ public class GlobalExceptionHandler {
         );
     }
 
+    // Handle MaxSessionsReachedException
+    @ExceptionHandler(MaxSessionsReachedException.class)
+    public ResponseEntity<ApiResponse<Map<String, Object>>> handleMaxSessionsReached(
+            MaxSessionsReachedException ex) {
+
+        logger.warn("Max sessions reached: {}", ex.getMessage());
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("hasActiveSession", true);
+        data.put("reason", "MAX_SESSIONS_REACHED");
+        data.put("suggestion", "Please logout from another device or use force-login");
+
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.<Map<String, Object>>builder()
+                        .success(false)
+                        .message(ex.getMessage())
+                        .data(data)
+                        .build());
+    }
+
+    // Handle Redis/Session errors gracefully
+    @ExceptionHandler({
+            org.springframework.data.redis.RedisConnectionFailureException.class,
+            org.springframework.data.redis.serializer.SerializationException.class
+    })
+    public ResponseEntity<ApiResponse<Void>> handleRedisErrors(Exception ex) {
+
+        logger.error("Redis error: {}", ex.getMessage(), ex);
+
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(ApiResponse.<Void>builder()
+                        .success(false)
+                        .message("Session service temporarily unavailable. Please try again.")
+                        .build());
+    }
 
     // 500 Internal Server Error -> Unexpected errors
     @ExceptionHandler(Exception.class)

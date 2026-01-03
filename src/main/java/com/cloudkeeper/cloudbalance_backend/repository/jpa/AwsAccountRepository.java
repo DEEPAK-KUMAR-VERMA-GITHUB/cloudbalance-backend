@@ -1,8 +1,6 @@
-package com.cloudkeeper.cloudbalance_backend.repository;
+package com.cloudkeeper.cloudbalance_backend.repository.jpa;
 
 import com.cloudkeeper.cloudbalance_backend.entity.AwsAccount;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

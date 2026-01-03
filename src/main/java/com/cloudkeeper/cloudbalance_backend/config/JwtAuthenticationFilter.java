@@ -3,11 +3,11 @@ package com.cloudkeeper.cloudbalance_backend.config;
 import com.cloudkeeper.cloudbalance_backend.dto.response.AuthResponse;
 import com.cloudkeeper.cloudbalance_backend.entity.RefreshToken;
 import com.cloudkeeper.cloudbalance_backend.entity.User;
-import com.cloudkeeper.cloudbalance_backend.entity.UserSession;
+import com.cloudkeeper.cloudbalance_backend.entity.UserSessionRedis;
 import com.cloudkeeper.cloudbalance_backend.logging.Logger;
 import com.cloudkeeper.cloudbalance_backend.logging.LoggerFactory;
-import com.cloudkeeper.cloudbalance_backend.repository.RefreshTokenRepository;
-import com.cloudkeeper.cloudbalance_backend.repository.UserRepository;
+import com.cloudkeeper.cloudbalance_backend.repository.jpa.RefreshTokenRepository;
+import com.cloudkeeper.cloudbalance_backend.repository.jpa.UserRepository;
 import com.cloudkeeper.cloudbalance_backend.service.*;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -22,7 +22,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -119,15 +118,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 logger.debug("UserDetails loaded: {}", userDetails.getUsername());
 
                 // 3. Get session ID from HTTP session
-                String sessionId = request.getSession(false) != null ?
-                        request.getSession(false).getId() : null;
+                String sessionId = jwtService.extractSessionId(jwt);
 
                 if (sessionId == null) {
-                    logger.warn("No HTTP session found - creating new session");
-                    sessionId = request.getSession(true).getId();
-                    logger.info("Created new HTTP session: {}", sessionId);
+                    logger.warn("No sessionId in JWT token");
+                    sendErrorResponse(response, "Invalid token", HttpServletResponse.SC_UNAUTHORIZED);
+                    return;
                 }
-                logger.debug("Session ID: {}", sessionId);
+                logger.debug("Session ID from JWT: {}", sessionId);
 
                 // 4. Check if token is valid or needs refresh
                 boolean tokenWasRefreshed = false;
@@ -164,7 +162,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 logger.debug("Session VALID");
 
                 // 6. Update session activity (keep alive)
-                sessionManagementService.updateSessionActivity(sessionId);
+                sessionManagementService.updateSessionActivity(sessionId, userId);
 
                 // 7. Set Spring Security authentication context
                 UsernamePasswordAuthenticationToken authenticationToken =
@@ -206,7 +204,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             logger.info("Starting auto-refresh for session : {}, userId : {}", sessionId, userId);
 
             // validate session exists and is active
-            UserSession session = sessionManagementService.findActiveSessionById(sessionId).orElse(null);
+            UserSessionRedis session = sessionManagementService.findActiveSessionById(sessionId).orElse(null);
             if (session == null) {
                 logger.warn("Session not found : {}", sessionId);
                 return null;
@@ -245,7 +243,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             refreshTokenRepository.save(refreshToken);
 
             // generate new access token
-            String newAccessToken = jwtService.generateAccessToken(userDetails, userId, user.getTokenVersion());
+            String newAccessToken = jwtService.generateAccessToken(userDetails, userId, user.getTokenVersion(), sessionId);
             logger.info("Generated new access token for user : {}", user.getEmail());
 
             // set new access token in http only cookie
@@ -261,7 +259,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             logger.debug("New access token cookie set.");
 
             // update session activity
-            sessionManagementService.updateSessionActivity(sessionId);
+            sessionManagementService.updateSessionActivity(sessionId, userId);
 
             logger.info("Auto-refresh completed successfully for user : {}", user.getEmail());
 

@@ -48,11 +48,12 @@ public class JwtService {
         return claimsResolver.apply(claims);
     }
 
-    public String generateAccessToken(UserDetails user, Long userId, Integer tokenVersion) {
+    public String generateAccessToken(UserDetails user, Long userId, Integer tokenVersion, String sessionId) {
         Map<String, Object> extraClaims = new HashMap<>();
         extraClaims.put("userId", userId);
         extraClaims.put("tokenVersion", tokenVersion);
         extraClaims.put("type", "access");
+        extraClaims.put("sessionId", sessionId);
         return buildToken(extraClaims, user, accessTokenExpiration);
     }
 
@@ -96,6 +97,10 @@ public class JwtService {
         return Jwts.parser()
                 .verifyWith((SecretKey) getSignInKey())
                 .build().parseSignedClaims(token).getPayload();
+    }
+
+    public String extractSessionId(String token) {
+        return extractClaim(token, claims -> claims.get("sessionId", String.class));
     }
 
     public Long getAccessTokenExpiration() {

@@ -5,16 +5,13 @@ import com.cloudkeeper.cloudbalance_backend.entity.User;
 import com.cloudkeeper.cloudbalance_backend.exception.TokenRefreshException;
 import com.cloudkeeper.cloudbalance_backend.logging.Logger;
 import com.cloudkeeper.cloudbalance_backend.logging.LoggerFactory;
-import com.cloudkeeper.cloudbalance_backend.logging.annotation.Loggable;
-import com.cloudkeeper.cloudbalance_backend.repository.RefreshTokenRepository;
-import com.cloudkeeper.cloudbalance_backend.repository.UserRepository;
+import com.cloudkeeper.cloudbalance_backend.repository.jpa.RefreshTokenRepository;
+import com.cloudkeeper.cloudbalance_backend.repository.jpa.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Repository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.swing.text.html.Option;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -31,11 +28,21 @@ public class RefreshTokenService {
     private long refreshTokenExpireDurationMs;
 
     @Transactional
-    public RefreshToken createRefreshToken(Long userId, String deviceInfo, String ipAddress) {
+    public RefreshToken createRefreshToken(Long userId, String deviceInfo, String ipAddress, String sessionId) {
         User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
 
-        // revoke all existing tokens for single device login
-        revokeAllUserTokens(user);
+        // if refresh token already exists
+        Optional<RefreshToken> existingToken = refreshTokenRepository
+                .findBySessionIdAndRevokedFalse(sessionId);
+
+        if (existingToken.isPresent()) {
+            // Reuse existing token for this device
+            RefreshToken token = existingToken.get();
+            token.setLastActivityTime(Instant.now());
+            return refreshTokenRepository.save(token);
+        }
+
+        // create new refresh token for this device/session
         RefreshToken refreshToken = RefreshToken.builder()
                 .user(user)
                 .token(UUID.randomUUID().toString())
@@ -111,6 +118,15 @@ public class RefreshTokenService {
         return refreshToken;
     }
 
+    @Transactional
+    public void revokeRefreshTokenBySession(String sessionId) {
+        refreshTokenRepository.findBySessionIdAndRevokedFalse(sessionId).ifPresent(
+                token -> {
+                    token.setRevoked(true);
+                }
+        );
+        logger.info("Refresh token revoked for session : {}", sessionId);
+    }
 }
 
 

@@ -4,17 +4,20 @@ import com.cloudkeeper.cloudbalance_backend.dto.request.LoginRequest;
 import com.cloudkeeper.cloudbalance_backend.dto.response.AuthResponse;
 import com.cloudkeeper.cloudbalance_backend.entity.RefreshToken;
 import com.cloudkeeper.cloudbalance_backend.entity.User;
-import com.cloudkeeper.cloudbalance_backend.entity.UserSession;
+import com.cloudkeeper.cloudbalance_backend.entity.UserSessionRedis;
 import com.cloudkeeper.cloudbalance_backend.exception.InvalidCredentialsException;
+import com.cloudkeeper.cloudbalance_backend.exception.MaxSessionsReachedException;
+import com.cloudkeeper.cloudbalance_backend.exception.ResourceNotFoundException;
 import com.cloudkeeper.cloudbalance_backend.logging.Logger;
 import com.cloudkeeper.cloudbalance_backend.logging.LoggerFactory;
-import com.cloudkeeper.cloudbalance_backend.repository.RefreshTokenRepository;
-import com.cloudkeeper.cloudbalance_backend.repository.UserRepository;
+import com.cloudkeeper.cloudbalance_backend.repository.jpa.UserRepository;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -22,8 +25,10 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.RequestBody;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -37,6 +42,7 @@ public class AuthService {
     private final RefreshTokenService refreshTokenService;
     private final SessionManagementService sessionManagementService;
     private final TokenBlackListService tokenBlackListService;
+    private final RedisTemplate<String, Object> redisTemplate;
 
     @Value("${jwt.access-token-expiration}")
     private long accessTokenExpiration;
@@ -50,38 +56,38 @@ public class AuthService {
             logger.info("Login attempt for email :{}", request.getEmail());
 
             // try to authenticate user
-            Authentication authentication = authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
+            authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
             logger.info("Authentication successful for: {}", request.getEmail());
             // load user details
             UserDetails userDetails = appUserDetailsService.loadUserByUsername(request.getEmail());
             User user = userRepository.findByEmail(request.getEmail()).orElseThrow(() -> new InvalidCredentialsException("User not found"));
 
-            // check if user has active session (single device login)
-            boolean hasActiveSession = refreshTokenService.hasActiveSession(user);
-
-            if (hasActiveSession) {
-                logger.warn("User already has active session : {}", user.getEmail());
-                return AuthResponse.builder()
-                        .hasActiveSession(true)
-                        .email(user.getEmail())
-                        .name(user.getFirstName() + " " + user.getLastName())
-                        .build();
-            }
-
             // extract device info and ip
             String deviceInfo = extractDeviceInfo(httpServletRequest);
             String ipAddress = extractIpAddress(httpServletRequest);
+            UserSessionRedis session = null;
+            // check max sessions
+            try {
+                session = sessionManagementService.createSession(user, deviceInfo, ipAddress);
+            } catch (MaxSessionsReachedException e) {
+                List<UserSessionRedis> activeSessions = sessionManagementService.getActiveUserSessions(user.getId());
+
+                return AuthResponse.builder()
+                        .hasActiveSession(true)
+                        .message(e.getMessage())
+                        .activeSessions(activeSessions)
+                        .email(user.getEmail())
+                        .build();
+            }
+
             // generate tokens
-            String accessToken = jwtService.generateAccessToken(userDetails, user.getId(), user.getTokenVersion());
-            RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getId(), deviceInfo, ipAddress);
+            String accessToken = jwtService.generateAccessToken(userDetails, user.getId(), user.getTokenVersion(), session.getSessionId());
+            RefreshToken refreshToken = refreshTokenService.createRefreshToken(user.getId(), deviceInfo, ipAddress, session.getSessionId());
 
             // initialize token version in redis if not exists
             if (tokenBlackListService.getUserTokenVersion(user.getId()) == null) {
                 tokenBlackListService.setUserTokenVersion(user.getId(), user.getTokenVersion());
             }
-
-            // create session
-            UserSession session = sessionManagementService.createSession(user, deviceInfo, ipAddress);
 
             logger.info("=== SETTING COOKIES ===");
             logger.info("Access Token: {}...", accessToken.substring(0, 20));
@@ -123,14 +129,15 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthResponse forceLogin(LoginRequest request, HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) {
+    public AuthResponse forceLogin(@Valid @RequestBody LoginRequest request, HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) {
         User user = userRepository.findByEmail(request.getEmail()).orElseThrow(() ->
                 new InvalidCredentialsException("User not found")
         );
 
         // revoke all existing sessions and tokens
         refreshTokenService.revokeAllUserTokens(user);
-        sessionManagementService.invalidateAllUserSessions(user);
+        sessionManagementService.invalidateAllUserSessions(user.getId());
+        tokenBlackListService.incrementUserTokenVersion(user.getId());
 
         logger.info("Force logout completed for user: {}", user.getEmail());
 
@@ -151,8 +158,10 @@ public class AuthService {
         User user = refreshToken.getUser();
         UserDetails userDetails = appUserDetailsService.loadUserByUsername(user.getEmail());
 
+        String sessionId = refreshToken.getSessionId();
+
         // generate new access token
-        String accessToken = jwtService.generateAccessToken(userDetails, user.getId(), user.getTokenVersion());
+        String accessToken = jwtService.generateAccessToken(userDetails, user.getId(), user.getTokenVersion(), sessionId);
 
         // set new access token in cookie
         setAccessTokenCookie(httpServletResponse, accessToken);
@@ -173,6 +182,30 @@ public class AuthService {
     }
 
     @Transactional
+    public void logoutDevice(Authentication authentication, HttpServletRequest request, HttpServletResponse response) {
+        User user = userRepository.findByEmail(authentication.getName()).orElseThrow(() -> new InvalidCredentialsException("User not found"));
+        // extract access token
+        String accessToken = extractAccessToken(request);
+
+        if (accessToken != null) {
+            tokenBlackListService.blacklistToken(accessToken, jwtService.getAccessTokenExpiration());
+        }
+
+        // get session id from request
+        String sessionId = request.getSession(false) != null ? request.getSession(false).getId() : null;
+
+        if (sessionId != null) {
+            sessionManagementService.invalidateSession(sessionId, user.getId());
+            refreshTokenService.revokeRefreshTokenBySession(sessionId);
+            logger.info("User logged out from device: {} session: {}", authentication.getName(), sessionId);
+        } else {
+            logger.warn("No session found for logout: {}", authentication.getName());
+        }
+
+
+    }
+
+    @Transactional
     public void logout(String email, HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) {
         User user = userRepository.findByEmail(email).orElseThrow(() -> new InvalidCredentialsException("User not found"));
 
@@ -189,7 +222,7 @@ public class AuthService {
             String sessionId = httpServletRequest.getSession(false) != null ? httpServletRequest.getSession(false).getId() : null;
 
             if (sessionId != null) {
-                sessionManagementService.invalidateSession(sessionId);
+                sessionManagementService.invalidateSession(sessionId, user.getId());
             }
 
             // clear cookies
@@ -197,6 +230,12 @@ public class AuthService {
 
             logger.info("User logged out : {}", email);
         }
+    }
+
+    @Transactional(readOnly = true)
+    public List<UserSessionRedis> getActiveUserSessions(Authentication authentication) {
+        User user = userRepository.findByEmail(authentication.getName()).orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        return sessionManagementService.getActiveUserSessions(user.getId());
     }
 
     private void setRefreshTokenCookie(HttpServletResponse httpServletResponse, String token) {
@@ -278,6 +317,5 @@ public class AuthService {
         String userAgent = request.getHeader("User-Agent");
         return userAgent != null ? userAgent : "Unknown Device";
     }
-
 
 }

@@ -1,4 +1,4 @@
-package com.cloudkeeper.cloudbalance_backend.repository;
+package com.cloudkeeper.cloudbalance_backend.repository.jpa;
 
 import com.cloudkeeper.cloudbalance_backend.entity.AccountAssignment;
 import com.cloudkeeper.cloudbalance_backend.entity.AwsAccount;

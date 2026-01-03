@@ -9,7 +9,7 @@ import com.cloudkeeper.cloudbalance_backend.entity.UserRole;
 import com.cloudkeeper.cloudbalance_backend.exception.ResourceNotFoundException;
 import com.cloudkeeper.cloudbalance_backend.logging.Logger;
 import com.cloudkeeper.cloudbalance_backend.logging.LoggerFactory;
-import com.cloudkeeper.cloudbalance_backend.repository.UserRepository;
+import com.cloudkeeper.cloudbalance_backend.repository.jpa.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NonNull;
 import org.springframework.data.domain.Page;

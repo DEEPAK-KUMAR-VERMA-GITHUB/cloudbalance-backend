@@ -8,8 +8,8 @@ import com.cloudkeeper.cloudbalance_backend.exception.ResourceAlreadyExistsExcep
 import com.cloudkeeper.cloudbalance_backend.exception.ResourceNotFoundException;
 import com.cloudkeeper.cloudbalance_backend.logging.Logger;
 import com.cloudkeeper.cloudbalance_backend.logging.LoggerFactory;
-import com.cloudkeeper.cloudbalance_backend.repository.AwsAccountRepository;
-import com.cloudkeeper.cloudbalance_backend.repository.UserRepository;
+import com.cloudkeeper.cloudbalance_backend.repository.jpa.AwsAccountRepository;
+import com.cloudkeeper.cloudbalance_backend.repository.jpa.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.encrypt.TextEncryptor;
 import org.springframework.stereotype.Service;

@@ -1,7 +1,7 @@
 package com.cloudkeeper.cloudbalance_backend.service;
 
 import com.cloudkeeper.cloudbalance_backend.entity.User;
-import com.cloudkeeper.cloudbalance_backend.repository.UserRepository;
+import com.cloudkeeper.cloudbalance_backend.repository.jpa.UserRepository;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;

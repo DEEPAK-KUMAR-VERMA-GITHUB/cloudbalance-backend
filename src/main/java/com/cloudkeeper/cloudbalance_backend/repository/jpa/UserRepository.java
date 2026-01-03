@@ -1,4 +1,4 @@
-package com.cloudkeeper.cloudbalance_backend.repository;
+package com.cloudkeeper.cloudbalance_backend.repository.jpa;
 
 import com.cloudkeeper.cloudbalance_backend.entity.User;
 import com.cloudkeeper.cloudbalance_backend.entity.UserRole;
@@ -9,7 +9,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
 import java.util.Optional;
 
 @Repository

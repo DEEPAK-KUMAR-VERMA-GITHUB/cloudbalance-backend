@@ -2,7 +2,7 @@ package com.cloudkeeper.cloudbalance_backend.config;
 
 import com.cloudkeeper.cloudbalance_backend.entity.User;
 import com.cloudkeeper.cloudbalance_backend.entity.UserRole;
-import com.cloudkeeper.cloudbalance_backend.repository.UserRepository;
+import com.cloudkeeper.cloudbalance_backend.repository.jpa.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;

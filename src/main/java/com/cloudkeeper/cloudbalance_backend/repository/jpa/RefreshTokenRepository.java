@@ -1,4 +1,4 @@
-package com.cloudkeeper.cloudbalance_backend.repository;
+package com.cloudkeeper.cloudbalance_backend.repository.jpa;
 
 import com.cloudkeeper.cloudbalance_backend.entity.RefreshToken;
 import com.cloudkeeper.cloudbalance_backend.entity.User;
@@ -32,4 +32,7 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long
 
     @Query("SELECT rt FROM RefreshToken rt JOIN FETCH rt.user WHERE rt.user.id = :userId AND rt.revoked = false ORDER BY rt.createdAt DESC")
     Optional<RefreshToken> findTopByUserIdAndRevokedFalseOrderByCreatedAtDesc(@Param("userId") Long userId);
+
+    // find by session id
+    Optional<RefreshToken> findBySessionIdAndRevokedFalse(String sessionId);
 }
