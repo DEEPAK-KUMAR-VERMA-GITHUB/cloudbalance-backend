@@ -7,7 +7,8 @@ import com.cloudkeeper.cloudbalance_backend.dto.response.ApiResponse;
 import com.cloudkeeper.cloudbalance_backend.dto.response.AwsAccountResponse;
 import com.cloudkeeper.cloudbalance_backend.entity.AwsAccount;
 import com.cloudkeeper.cloudbalance_backend.helper.roleAnnotations.AdminOnly;
-import com.cloudkeeper.cloudbalance_backend.helper.roleAnnotations.AdminOrCustomer;
+import com.cloudkeeper.cloudbalance_backend.helper.roleAnnotations.AnyAuthenticatedUser;
+import com.cloudkeeper.cloudbalance_backend.helper.roleAnnotations.ReadOnlyOrAbove;
 import com.cloudkeeper.cloudbalance_backend.logging.Logger;
 import com.cloudkeeper.cloudbalance_backend.logging.LoggerFactory;
 import com.cloudkeeper.cloudbalance_backend.service.AccountAssignmentService;
@@ -18,7 +19,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
@@ -51,7 +51,7 @@ public class AwsAccountController {
 
     // ADMIN: List all AWS accounts
     @GetMapping
-    @AdminOnly
+    @ReadOnlyOrAbove
     public ResponseEntity<ApiResponse<List<AwsAccountResponse>>> getAllAwsAccounts() {
         List<AwsAccountResponse> accounts = awsAccountService.getAllAwsAccounts();
         return ResponseEntity.ok(
@@ -90,7 +90,7 @@ public class AwsAccountController {
 
     // Customer: Get my assigned accounts
     @GetMapping("/my-accounts")
-    @AdminOrCustomer
+    @AnyAuthenticatedUser
     public ResponseEntity<ApiResponse<List<AwsAccount>>> getMyAccounts(Authentication auth) {
         // extract userId from authentication
         Long userId = extractUserId(auth);

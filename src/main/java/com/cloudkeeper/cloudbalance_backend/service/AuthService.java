@@ -158,7 +158,35 @@ public class AuthService {
         User user = refreshToken.getUser();
         UserDetails userDetails = appUserDetailsService.loadUserByUsername(user.getEmail());
 
-        String sessionId = refreshToken.getSessionId();
+        // Extract sessionId from the old access token (even if expired)
+        String oldAccessToken = extractAccessToken(httpServletRequest);
+        String sessionId = null;
+
+        if (oldAccessToken != null) {
+            try {
+                sessionId = jwtService.extractSessionId(oldAccessToken);
+            } catch (Exception e) {
+                logger.warn("Could not extract sessionId from expired token, will retrieve from Redis");
+            }
+        }
+
+        // If we couldn't get sessionId from token, find active session for user in Redis
+        if (sessionId == null) {
+            List<UserSessionRedis> activeSessions = sessionManagementService.getActiveUserSessions(user.getId());
+            if (activeSessions.isEmpty()) {
+                throw new InvalidCredentialsException("No active session found. Please login again.");
+            }
+            // Use the first active session (or implement logic to choose the correct one)
+            sessionId = activeSessions.getFirst().getSessionId();
+        }
+
+        // Validate session exists and is active in Redis
+        if (!sessionManagementService.isSessionValid(sessionId)) {
+            throw new InvalidCredentialsException("Session expired. Please login again.");
+        }
+
+        // Update session activity in Redis
+        sessionManagementService.updateSessionActivity(sessionId, user.getId());
 
         // generate new access token
         String accessToken = jwtService.generateAccessToken(userDetails, user.getId(), user.getTokenVersion(), sessionId);
@@ -196,7 +224,7 @@ public class AuthService {
 
         if (sessionId != null) {
             sessionManagementService.invalidateSession(sessionId, user.getId());
-            refreshTokenService.revokeRefreshTokenBySession(sessionId);
+            refreshTokenService.revokeRefreshTokenByDevice(user.getId(), sessionId);
             logger.info("User logged out from device: {} session: {}", authentication.getName(), sessionId);
         } else {
             logger.warn("No session found for logout: {}", authentication.getName());

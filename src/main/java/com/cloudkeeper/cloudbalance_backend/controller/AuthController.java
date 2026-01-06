@@ -4,6 +4,7 @@ import com.cloudkeeper.cloudbalance_backend.dto.request.LoginRequest;
 import com.cloudkeeper.cloudbalance_backend.dto.response.ApiResponse;
 import com.cloudkeeper.cloudbalance_backend.dto.response.AuthResponse;
 import com.cloudkeeper.cloudbalance_backend.entity.UserSessionRedis;
+import com.cloudkeeper.cloudbalance_backend.helper.roleAnnotations.AnyAuthenticatedUser;
 import com.cloudkeeper.cloudbalance_backend.logging.Logger;
 import com.cloudkeeper.cloudbalance_backend.logging.LoggerFactory;
 import com.cloudkeeper.cloudbalance_backend.logging.annotation.Loggable;
@@ -36,7 +37,6 @@ public class AuthController {
 
     @PostMapping("/login")
     @Operation(summary = "Login user", description = "Authenticate user and return jwt token")
-    @Loggable
     public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest request, HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) {
         AuthResponse authResponse = authService.login(request, httpServletRequest, httpServletResponse);
 
@@ -63,6 +63,7 @@ public class AuthController {
 
 
     // get all active sessions for current user
+    @AnyAuthenticatedUser
     @GetMapping("/sessions")
     public ResponseEntity<ApiResponse<List<UserSessionRedis>>> getActiveSessions(Authentication authentication) {
         List<UserSessionRedis> sessions = authService.getActiveUserSessions(authentication);
@@ -72,6 +73,7 @@ public class AuthController {
                 .build());
     }
 
+    @AnyAuthenticatedUser
     @PostMapping("/logout")
     @Operation(summary = "Logout user", description = "Logout user and invalidate tokens")
     public ResponseEntity<ApiResponse<Void>> logout(

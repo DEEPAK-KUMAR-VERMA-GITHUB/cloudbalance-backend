@@ -32,13 +32,13 @@ public class RefreshTokenService {
         User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
 
         // if refresh token already exists
-        Optional<RefreshToken> existingToken = refreshTokenRepository
-                .findBySessionIdAndRevokedFalse(sessionId);
+        Optional<RefreshToken> existingToken = refreshTokenRepository.findByUserAndDeviceInfoAndRevokedFalse(user, deviceInfo);
 
         if (existingToken.isPresent()) {
             // Reuse existing token for this device
             RefreshToken token = existingToken.get();
             token.setLastActivityTime(Instant.now());
+            token.setExpiryDate(Instant.now().plusMillis(refreshTokenExpireDurationMs));
             return refreshTokenRepository.save(token);
         }
 
@@ -119,14 +119,16 @@ public class RefreshTokenService {
     }
 
     @Transactional
-    public void revokeRefreshTokenBySession(String sessionId) {
-        refreshTokenRepository.findBySessionIdAndRevokedFalse(sessionId).ifPresent(
-                token -> {
+    public void revokeRefreshTokenByDevice(Long userId, String deviceInfo) {
+        User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
+
+        refreshTokenRepository.findByUserAndDeviceInfoAndRevokedFalse(user, deviceInfo).ifPresent(token -> {
                     token.setRevoked(true);
-                }
-        );
-        logger.info("Refresh token revoked for session : {}", sessionId);
+            refreshTokenRepository.save(token);
+            logger.info("Refresh token revoked for user: {} device: {}", userId, deviceInfo);
+        });
     }
+
 }
 
 

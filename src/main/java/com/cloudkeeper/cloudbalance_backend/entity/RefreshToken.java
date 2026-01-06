@@ -27,9 +27,6 @@ public class RefreshToken {
     @Column(nullable = false, unique = true)
     private String token;
 
-    @Column(name = "session_id")
-    private String sessionId;
-
     @Column(nullable = false)
     private Instant expiryDate;
 

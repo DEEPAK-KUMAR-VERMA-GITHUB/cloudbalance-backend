@@ -33,6 +33,6 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long
     @Query("SELECT rt FROM RefreshToken rt JOIN FETCH rt.user WHERE rt.user.id = :userId AND rt.revoked = false ORDER BY rt.createdAt DESC")
     Optional<RefreshToken> findTopByUserIdAndRevokedFalseOrderByCreatedAtDesc(@Param("userId") Long userId);
 
-    // find by session id
-    Optional<RefreshToken> findBySessionIdAndRevokedFalse(String sessionId);
+    @Query("SELECT rt FROM RefreshToken rt WHERE rt.user = :user AND rt.deviceInfo = :deviceInfo AND rt.revoked = false")
+    Optional<RefreshToken> findByUserAndDeviceInfoAndRevokedFalse(User user, String deviceInfo);
 }

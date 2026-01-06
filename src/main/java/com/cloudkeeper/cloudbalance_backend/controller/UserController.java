@@ -6,6 +6,8 @@ import com.cloudkeeper.cloudbalance_backend.dto.response.ApiResponse;
 import com.cloudkeeper.cloudbalance_backend.dto.response.PagedResponse;
 import com.cloudkeeper.cloudbalance_backend.dto.response.UserResponse;
 import com.cloudkeeper.cloudbalance_backend.entity.UserRole;
+import com.cloudkeeper.cloudbalance_backend.helper.roleAnnotations.AdminOnly;
+import com.cloudkeeper.cloudbalance_backend.helper.roleAnnotations.ReadOnlyOrAbove;
 import com.cloudkeeper.cloudbalance_backend.logging.annotation.Loggable;
 import com.cloudkeeper.cloudbalance_backend.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -32,7 +34,7 @@ public class UserController {
     private final UserService userService;
 
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @ReadOnlyOrAbove
     @Operation(
             summary = "List users with filters (ADMIN only)",
             description = "Returns paginated list of users with optional filters for search, role, and active status.",
@@ -72,7 +74,7 @@ public class UserController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @ReadOnlyOrAbove
     @Operation(summary = "Get user by ID (ADMIN only) ", description = "Retrieve a specific user by his/her ID. Only ADMIN can call this endpoint.")
     public ResponseEntity<ApiResponse<UserResponse>> getUserById(@PathVariable("id") Long userId) {
         UserResponse user = userService.getUserById(userId);
@@ -84,7 +86,7 @@ public class UserController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @AdminOnly
     @Operation(
             summary = "Create new user (ADMIN only) ",
             description = "Create a new user with given roles. Only ADMIN can call this endpoint.",
@@ -117,7 +119,7 @@ public class UserController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @AdminOnly
     @Operation(
             summary = "Update an user (ADMIN only) ",
             description = "Update basic user info and roles. Only ADMIN can call this endpoint."
@@ -134,7 +136,7 @@ public class UserController {
     }
 
     @PatchMapping("/{id}/activate")
-    @PreAuthorize("hasRole('ADMIN')")
+    @AdminOnly
     @Operation(
             summary = "Activate user (ADMIN only)",
             description = "Activates a user account. Only ADMIN can call this endpoint."
@@ -151,7 +153,7 @@ public class UserController {
     }
 
     @PatchMapping("/{id}/deactivate")
-    @PreAuthorize("hasRole('ADMIN')")
+    @AdminOnly
     @Operation(
             summary = "Deactivate user (ADMIN only)",
             description = "Deactivates a user account. Only ADMIN can call this endpoint."
@@ -168,7 +170,7 @@ public class UserController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @AdminOnly
     @Operation(summary = "Delete an user (ADMIN only)", description = "Soft delete : marks user inactive and revokes tokens/sessions.")
     public ResponseEntity<ApiResponse<Void>> deleteUser(@PathVariable("id") Long userId) {
         userService.deleteUser(userId);
