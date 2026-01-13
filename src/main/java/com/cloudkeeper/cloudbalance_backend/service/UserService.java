@@ -11,6 +11,7 @@ import com.cloudkeeper.cloudbalance_backend.logging.Logger;
 import com.cloudkeeper.cloudbalance_backend.logging.LoggerFactory;
 import com.cloudkeeper.cloudbalance_backend.repository.jpa.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -88,11 +89,6 @@ public class UserService {
             throw new IllegalArgumentException("Email already exists : " + request.getEmail());
         }
 
-        // convert role strings to UserRole enum
-        Set<UserRole> roles = request.getRoles().stream()
-                .map(UserRole::fromDisplayName)
-                .collect(Collectors.toSet());
-
         // Generate temporary password
         // TODO : In production send via email
         String tempPassword = UUID.randomUUID().toString().substring(0, 8);
@@ -102,7 +98,7 @@ public class UserService {
                 .lastName(request.getLastName())
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(tempPassword))
-                .roles(roles)
+                .role(UserRole.fromDisplayName(request.getRole()))
                 .active(true)
                 .build();
 
@@ -121,11 +117,8 @@ public class UserService {
         if (request.getLastName() != null) {
             user.setLastName(request.getLastName());
         }
-        if (request.getRoles() != null && !request.getRoles().isEmpty()) {
-            Set<UserRole> roles = request.getRoles().stream()
-                    .map(UserRole::fromDisplayName)
-                    .collect(Collectors.toSet());
-            user.setRoles(roles);
+        if (request.getRole() != null && !request.getRole().isEmpty()) {
+            user.setRole(UserRole.fromDisplayName(request.getRole()));
         }
         if (request.getActive() != null) {
             user.setActive(request.getActive());
@@ -147,20 +140,17 @@ public class UserService {
 
 
     private UserResponse mapToResponse(@NonNull User user) {
-        Set<String> roleDisplayNames = user.getRoles().stream()
-                .map(UserRole::getDisplayName)
-                .collect(Collectors.toSet());
 
         return UserResponse.builder()
                 .id(user.getId())
                 .firstName(user.getFirstName())
                 .lastName(user.getLastName())
                 .email(user.getEmail())
-                .roles(roleDisplayNames)
+                .role(user.getRole().getDisplayName())
                 .active(user.getActive())
                 .lastLogin(user.getLastLogin())
                 .createdAt(user.getCreatedAt())
-                .canPromote(user.getRoles().contains(UserRole.ADMIN))
+                .canPromote(user.getRole().equals(UserRole.ADMIN))
                 .canResend(!user.getActive() || user.getLastLogin() == null)
                 .build();
     }
@@ -183,5 +173,11 @@ public class UserService {
         User savedUser = userRepository.save(user);
         logger.info("Activated user with id : {}", userId);
         return mapToResponse(savedUser);
+    }
+
+    public UserResponse getUserByEmail(String email) {
+        logger.info("Fetching user by email : {}", email);
+        User user = userRepository.findByEmail(email).orElseThrow(() -> new ResourceNotFoundException("User not found with email : " + email));
+        return mapToResponse(user);
     }
 }

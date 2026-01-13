@@ -8,6 +8,7 @@ import com.cloudkeeper.cloudbalance_backend.dto.response.AwsAccountResponse;
 import com.cloudkeeper.cloudbalance_backend.entity.AwsAccount;
 import com.cloudkeeper.cloudbalance_backend.helper.roleAnnotations.AdminOnly;
 import com.cloudkeeper.cloudbalance_backend.helper.roleAnnotations.AnyAuthenticatedUser;
+import com.cloudkeeper.cloudbalance_backend.helper.roleAnnotations.CustomerOnly;
 import com.cloudkeeper.cloudbalance_backend.helper.roleAnnotations.ReadOnlyOrAbove;
 import com.cloudkeeper.cloudbalance_backend.logging.Logger;
 import com.cloudkeeper.cloudbalance_backend.logging.LoggerFactory;
@@ -20,7 +21,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -39,123 +39,67 @@ public class AwsAccountController {
     @AdminOnly
     @Operation(summary = "Create AWS account", description = "Admin creates a new AWS account.")
     public ResponseEntity<ApiResponse<AwsAccountResponse>> createAwsAccount(@Valid @RequestBody AwsAccountCreateRequest request) {
+        logger.info("Creating AWS account : {}", request.getAccountAlias());
         AwsAccountResponse response = awsAccountService.createAwsAccount(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(
-                ApiResponse.<AwsAccountResponse>builder()
-                        .success(true)
-                        .message("Account created successfully.")
-                        .data(response)
-                        .build()
-        );
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.<AwsAccountResponse>builder().success(true).message("Account created successfully.").data(response).build());
     }
 
     // ADMIN: List all AWS accounts
     @GetMapping
     @ReadOnlyOrAbove
+    @Operation(summary = "Get all aws accounts", description = "Admin can see all the aws accounts.")
     public ResponseEntity<ApiResponse<List<AwsAccountResponse>>> getAllAwsAccounts() {
         List<AwsAccountResponse> accounts = awsAccountService.getAllAwsAccounts();
-        return ResponseEntity.ok(
-                ApiResponse.<List<AwsAccountResponse>>builder()
-                        .success(true)
-                        .data(accounts)
-                        .build()
-        );
+        return ResponseEntity.ok(ApiResponse.<List<AwsAccountResponse>>builder().success(true).message("Accounts retrieved successfully.").data(accounts).build());
     }
 
     // ADMIN: Assign account to customer
     @PostMapping("/assign")
     @AdminOnly
-    public ResponseEntity<ApiResponse<Void>> assignAccount(@RequestBody AccountAssignmentRequest request) {
+    @Operation(summary = "Assign AWS account", description = "Admin can assign any AWS account to any customer.")
+    public ResponseEntity<ApiResponse<Void>> assignAccount(@Valid @RequestBody AccountAssignmentRequest request) {
+        logger.info("Assigning account {} to user {}", request.getAwsAccountId(), request.getUserId());
         assignmentService.assignAccount(request.getAwsAccountId(), request.getUserId());
-        return ResponseEntity.ok(
-                ApiResponse.<Void>builder()
-                        .success(true)
-                        .message("Account assigned successfully.")
-                        .build()
-        );
+        return ResponseEntity.ok(ApiResponse.<Void>builder().success(true).message("Account assigned successfully.").build());
     }
 
     // ADMIN: Assign account to customer
     @PostMapping("/unassign")
     @AdminOnly
-    public ResponseEntity<ApiResponse<Void>> unassignAccount(@RequestBody AccountAssignmentRequest request) {
+    @Operation(summary = "Unassign AWS account", description = "Admin can unassign any account from the customer.")
+    public ResponseEntity<ApiResponse<Void>> unassignAccount(@Valid @RequestBody AccountAssignmentRequest request) {
+        logger.info("Unassigning account {} from user {}", request.getAwsAccountId(), request.getUserId());
         assignmentService.unassignAccount(request.getAwsAccountId(), request.getUserId());
-        return ResponseEntity.ok(
-                ApiResponse.<Void>builder()
-                        .success(true)
-                        .message("Account unassigned successfully.")
-                        .build()
-        );
+        return ResponseEntity.ok(ApiResponse.<Void>builder().success(true).message("Account unassigned successfully.").build());
     }
 
     // Customer: Get my assigned accounts
     @GetMapping("/my-accounts")
-    @AnyAuthenticatedUser
+    @CustomerOnly
+    @Operation(summary = "Get all the assigned accounts", description = "User can get all assigned accounts.")
     public ResponseEntity<ApiResponse<List<AwsAccount>>> getMyAccounts(Authentication auth) {
+        logger.info("Fetching accounts for authenticated user.");
         // extract userId from authentication
         Long userId = extractUserId(auth);
         logger.debug("User Id extracted : {}", userId);
 
-        List<AwsAccount> accounts = awsAccountService.getCustomerAccounts(userId);
+        List<AwsAccount> accounts = awsAccountService.getAccountsForUser(userId);
 
-        return ResponseEntity.ok(
-                ApiResponse.<List<AwsAccount>>builder()
-                        .success(true)
-                        .message("Your accounts retrieved successfully.")
-                        .data(accounts)
-                        .build()
-        );
+        return ResponseEntity.ok(ApiResponse.<List<AwsAccount>>builder().success(true).message("Your accounts retrieved successfully.").data(accounts).build());
     }
 
-    @PatchMapping("/{accountId}/activate")
+    @DeleteMapping("/{id}")
     @AdminOnly
-    @Operation(summary = "Activate AWS account", description = "Admin activates an AWS account.")
-    public ResponseEntity<ApiResponse<Void>> activateAccount(@PathVariable("accountId") Long accountId) {
-        logger.info("Activate AWS account request : {}", accountId);
-
-        awsAccountService.activateAccount(accountId);
-        return ResponseEntity.ok(
-                ApiResponse.<Void>builder()
-                        .success(true)
-                        .message("Account activated successfully.")
-                        .build()
-        );
-    }
-
-    @PatchMapping("/{accountId}/deactivate")
-    @AdminOnly
-    @Operation(summary = "Deactivate AWS account", description = "Admin deactivates an AWS account.")
-    public ResponseEntity<ApiResponse<Void>> deactivateAccount(@PathVariable("accountId") Long accountId) {
-        logger.info("Deactivate AWS account request : {}", accountId);
-
-        awsAccountService.deactivateAccount(accountId);
-        return ResponseEntity.ok(
-                ApiResponse.<Void>builder()
-                        .success(true)
-                        .message("Account deactivated successfully.")
-                        .build()
-        );
+    public ResponseEntity<ApiResponse<Void>> deleteAccount(@PathVariable Long id) {
+        logger.info("Deleting AWS account : {}", id);
+        awsAccountService.deleteAwsAccount(id);
+        return ResponseEntity.ok(ApiResponse.<Void>builder().success(true).message("Account deleted successfully").build());
     }
 
     private Long extractUserId(Authentication auth) {
-        Object principal = auth.getPrincipal();
+        UserPrincipal principal = (UserPrincipal) auth.getPrincipal();
         if (principal != null) {
-            logger.debug("Principal type : {}", principal.getClass().getName());
-
-            // try user principal first from my custom implementation
-            if (principal instanceof UserPrincipal) {
-                UserPrincipal userPrincipal = (UserPrincipal) principal;
-                return userPrincipal.getId();
-            }
-
-            // try spring security user details
-            if (principal instanceof UserDetails) {
-                UserDetails userDetails = (UserDetails) principal;
-                String username = userDetails.getUsername();
-                // fetch userId from database
-                return awsAccountService.getUserIdByEmail(username);
-            }
-
+            return principal.getId();
         }
         // fallback : get from authentication name
         String username = auth.getName();

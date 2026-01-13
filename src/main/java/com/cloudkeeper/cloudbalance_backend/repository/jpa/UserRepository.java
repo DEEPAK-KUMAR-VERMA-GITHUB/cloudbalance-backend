@@ -18,19 +18,12 @@ public interface UserRepository extends JpaRepository<User, Long> {
     boolean existsByEmail(String email);
 
     // Filter by single role
-    @Query("SELECT u FROM User u JOIN u.roles r WHERE r = :role")
     Page<User> findByRole(@Param("role") UserRole role, Pageable pageable);
 
     // Filter by active flag
     Page<User> findByActive(Boolean active, Pageable pageable);
 
     // Filter by active + role
-    @Query("""
-            SELECT DISTINCT u FROM User u
-            JOIN u.roles r
-            WHERE u.active = :active
-            AND r = :role
-            """)
     Page<User> findByActiveAndRole(@Param("active") Boolean active, @Param("role") UserRole role, Pageable pageable);
 
     // Case-insensitive search by name or email

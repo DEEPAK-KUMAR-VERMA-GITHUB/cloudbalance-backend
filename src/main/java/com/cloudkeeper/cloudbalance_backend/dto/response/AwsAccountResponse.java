@@ -17,9 +17,10 @@ public class AwsAccountResponse {
     private Long id;
     private String accountId;
     private String accountAlias;
-    private String region;
+    private String roleArn;
     private Boolean active;
-    private BigDecimal monthlyBudget;
+    private Integer assignedUsersCount;
+    private Set<String> assignedUserEmails;
     private LocalDateTime createdAt;
-    private Set<Long> assignedUserIds;
+    private LocalDateTime updatedAt;
 }

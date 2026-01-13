@@ -25,8 +25,7 @@ public class UserUpdateRequest {
     private String lastName;
 
     @NotEmpty(message = "At least one role is required")
-    private Set<String> roles;
+    private String role;
 
-    @NotBlank(message = "Status is required.")
     private Boolean active;
 }

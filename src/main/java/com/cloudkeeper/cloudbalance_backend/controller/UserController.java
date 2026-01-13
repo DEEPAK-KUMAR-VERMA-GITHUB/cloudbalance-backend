@@ -7,8 +7,10 @@ import com.cloudkeeper.cloudbalance_backend.dto.response.PagedResponse;
 import com.cloudkeeper.cloudbalance_backend.dto.response.UserResponse;
 import com.cloudkeeper.cloudbalance_backend.entity.UserRole;
 import com.cloudkeeper.cloudbalance_backend.helper.roleAnnotations.AdminOnly;
+import com.cloudkeeper.cloudbalance_backend.helper.roleAnnotations.AnyAuthenticatedUser;
 import com.cloudkeeper.cloudbalance_backend.helper.roleAnnotations.ReadOnlyOrAbove;
-import com.cloudkeeper.cloudbalance_backend.logging.annotation.Loggable;
+import com.cloudkeeper.cloudbalance_backend.logging.Logger;
+import com.cloudkeeper.cloudbalance_backend.logging.LoggerFactory;
 import com.cloudkeeper.cloudbalance_backend.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -21,7 +23,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -32,6 +34,7 @@ import org.springframework.web.bind.annotation.*;
 public class UserController {
 
     private final UserService userService;
+    private final Logger logger = LoggerFactory.getLogger(UserController.class);
 
     @GetMapping
     @ReadOnlyOrAbove
@@ -182,6 +185,34 @@ public class UserController {
         );
     }
 
+    @GetMapping("/me")
+    @Operation(
+            summary = "Get current user",
+            description = "Get authenticated user information"
+    )
+    @AnyAuthenticatedUser
+    public ResponseEntity<ApiResponse<UserResponse>> getCurrentUser(Authentication authentication) {
+        logger.info("Fetching current user info.");
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
+                    ApiResponse.<UserResponse>builder()
+                            .success(false)
+                            .message("Not authenticated")
+                            .build());
+        }
+
+        String email = authentication.getName();
+        UserResponse user = userService.getUserByEmail(email);
+
+        return ResponseEntity.ok(
+                ApiResponse.<UserResponse>builder()
+                        .success(true)
+                        .message("Current user retrieved successfully.")
+                        .data(user)
+                        .build()
+        );
+
+    }
 
 }
 

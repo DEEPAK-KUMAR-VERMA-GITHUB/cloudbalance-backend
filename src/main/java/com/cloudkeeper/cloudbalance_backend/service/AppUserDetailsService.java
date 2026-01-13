@@ -1,5 +1,6 @@
 package com.cloudkeeper.cloudbalance_backend.service;
 
+import com.cloudkeeper.cloudbalance_backend.config.UserPrincipal;
 import com.cloudkeeper.cloudbalance_backend.entity.User;
 import com.cloudkeeper.cloudbalance_backend.repository.jpa.UserRepository;
 import lombok.Getter;
@@ -30,21 +31,6 @@ public class AppUserDetailsService implements UserDetailsService {
         // load from DB
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with email : " + email));
-        this.id = user.getId();
-        return org.springframework.security.core.userdetails.User.builder()
-                .username(user.getEmail())
-                .password(user.getPassword())
-                .authorities(getAuthorities(user))
-                .accountExpired(false)
-                .accountLocked(!user.getActive())
-                .credentialsExpired(false)
-                .disabled(!user.getActive())
-                .build();
-    }
-
-    private Collection<? extends GrantedAuthority> getAuthorities(User user) {
-        return user.getRoles().stream()
-                .map(role -> new SimpleGrantedAuthority("ROLE_" + role.name()))
-                .toList();
+        return UserPrincipal.create(user);
     }
 }

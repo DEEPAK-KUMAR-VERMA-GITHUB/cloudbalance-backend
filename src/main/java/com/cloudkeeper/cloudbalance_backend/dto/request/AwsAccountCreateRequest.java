@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 
 @Data
 public class AwsAccountCreateRequest {
-    @NotBlank(message = "Account id is required")
+    @NotBlank(message = "Account ID is required")
     @Pattern(regexp = AWS_ACCOUNT_ID, message = "Account ID must be exactly 12 digits")
     @SafeInput
     private String accountId;
@@ -25,26 +25,7 @@ public class AwsAccountCreateRequest {
     @SafeInput
     private String accountAlias;
 
-    @NotBlank(message = "Access key id is required.")
-    @Length(max = 100)
-    @Pattern(regexp = AWS_ACCESS_KEY, message = "Invalid AWS Access key ID format.")
+    @Pattern(regexp = AWS_ROLE_ARN, message = "Invalid IAM Role ARN format")
     @SafeInput
-    private String accessKeyId;
-
-    @NotBlank(message = "Secret Access key is required.")
-    @Length(max = 100)
-    @Pattern(regexp = AWS_SECRET_KEY, message = "Invalid AWS Secret access key format.")
-    @SafeInput
-    private String secretAccessKey;
-
-    @NotBlank(message = "Region is required")
-    @Pattern(regexp = AWS_REGION, message = "Invalid AWS region format (e.g., us-east-1)")
-    private String region;
-
-    @DecimalMin(value = "0.0", inclusive = false, message = "Monthly budget must be positive")
-    private BigDecimal monthlyBudget;
-
-    private Boolean active;
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
+    private String roleArn;
 }

@@ -32,5 +32,5 @@ public class UserCreateRequest {
     private String email;
 
     @NotEmpty(message = "At least one role is required")
-    private Set<String> roles;  // converted to userrole enum in user service
+    private String role;  // converted to userrole enum in user service
 }

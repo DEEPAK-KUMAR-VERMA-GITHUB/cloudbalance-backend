@@ -1,24 +1,19 @@
 package com.cloudkeeper.cloudbalance_backend.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 @Builder
 @Entity
 @Table(name = "users")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 public class User {
@@ -39,12 +34,9 @@ public class User {
     @Column(nullable = false)
     private String password;
 
-    @ElementCollection(fetch = FetchType.EAGER)
-    @CollectionTable(name = "user_role", joinColumns = @JoinColumn(name = "user_id"))
     @Enumerated(EnumType.STRING)
-    @Column(name = "role")
-    @Builder.Default
-    private Set<UserRole> roles = new HashSet<>();
+    @Column(nullable = false)
+    private UserRole role;
 
     @Column(nullable = false)
     @Builder.Default
@@ -63,20 +55,12 @@ public class User {
     @Builder.Default
     private Integer tokenVersion = 0;
 
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    @JsonIgnore
+    @ManyToMany(cascade = {CascadeType.MERGE, CascadeType.PERSIST}, fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "user_account_assignments",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "account_id")
+    )
     @Builder.Default
-    private List<AccountAssignment> accountAssignments = new ArrayList<>();
-
-    // helper methods
-    public void addAccountAssignment(AccountAssignment assignment){
-        accountAssignments.add(assignment);
-        assignment.setUser(this);
-    }
-
-    public void removeAccountAssignment(AccountAssignment assignment){
-        accountAssignments.remove(assignment);
-        assignment.setUser(null);
-    }
-
+    private Set<AwsAccount> assignedAccounts = new HashSet<>();
 }

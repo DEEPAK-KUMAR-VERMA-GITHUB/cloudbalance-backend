@@ -24,6 +24,7 @@ public final class ValidationPatterns {
 
     // AWS specific
     public static final String AWS_ACCOUNT_ID = "^[0-9]{12}$";
+    public static final String AWS_ROLE_ARN = "arn:aws:iam::\\d{12}:role/[\\w+=,.@-]+";
     public static final String AWS_ACCESS_KEY = "^[A-Z0-9]{20}$";
     public static final String AWS_SECRET_KEY = "^[A-Za-z0-9/+=]{40}$";
     public static final String AWS_REGION = "^[a-z]{2}-[a-z]+-[0-9]{1}$";

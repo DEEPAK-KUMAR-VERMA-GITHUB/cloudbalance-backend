@@ -31,9 +31,6 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
 
-    // devtools
-    developmentOnly 'org.springframework.boot:spring-boot-devtools'
-
     // crypto
     implementation("org.springframework.security:spring-security-crypto:7.0.2")
 
@@ -56,6 +53,14 @@ dependencies {
     // openapi/swagger
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.0'
 
+    // Snowflake Snowpark
+    implementation("com.snowflake:snowpark_2.13:1.17.0") {
+        exclude group: "org.slf4j", module: "slf4j-simple"
+    }
+//    implementation "net.snowflake:snowflake-jdbc:3.13.30"
+//    configurations.configureEach {
+//        exclude group: 'org.slf4j', module: 'slf4j-simple'
+//    }
 
     // Testing
     testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
@@ -66,4 +71,15 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+}
+bootRun {
+    jvmArgs = [
+            "--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED",
+            "--add-opens=java.base/java.lang=ALL-UNNAMED",
+            "--add-opens=java.base/java.nio=ALL-UNNAMED",
+            "--add-opens=java.base/java.lang=ALL-UNNAMED",
+            "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
+           " --add-opens=java.base/jdk.internal.misc=ALL-UNNAMED"
+
+    ]
 }

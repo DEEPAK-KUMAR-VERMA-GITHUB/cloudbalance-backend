@@ -106,7 +106,7 @@ public class AuthService {
             logger.info("User logged in successfully : {}", request.getEmail());
 
             // Get primary role
-            String primaryRole = user.getRoles().isEmpty() ? "CUSTOMER" : user.getRoles().iterator().next().getDisplayName();
+            String primaryRole = user.getRole().getDisplayName();
 
             return AuthResponse.builder()
                     .accessToken(accessToken)
@@ -196,7 +196,7 @@ public class AuthService {
 
         logger.info("Token refreshed for user: {}", user.getEmail());
 
-        String primaryRole = user.getRoles().isEmpty() ? "CUSTOMER" : user.getRoles().iterator().next().getDisplayName();
+        String primaryRole = user.getRole().getDisplayName();
 
         return AuthResponse.builder()
                 .accessToken(accessToken)

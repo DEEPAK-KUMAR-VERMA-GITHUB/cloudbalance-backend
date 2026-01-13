@@ -1,16 +1,14 @@
 package com.cloudkeeper.cloudbalance_backend.entity;
 
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "aws_accounts")
@@ -24,47 +22,24 @@ public class AwsAccount {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     @Column(nullable = false, unique = true)
-    private String accountId;
+    private String accountId; // aws account id 12 digits
     @Column(nullable = false)
     private String accountAlias;
-    @Column(nullable = false, length = 100)
-    private String accessKeyId;
-    @Column(nullable = false, length = 100)
-    private String secretAccessKey;
-    @Column(nullable = false)
-    private String region;
-    @Column(nullable = false)
+    @Column(name = "role_arn")
+    private String roleArn; // IAM Role ARN for access
+    @Column(name = "external_account_id")
+    private String externalId;
+
+    @ManyToMany(mappedBy = "assignedAccounts")
     @Builder.Default
+    private Set<User> assignedUsers = new HashSet<>();
+
+    @Builder.Default
+    @Column(nullable = false)
     private Boolean active = true;
-    @Column(precision = 12, scale = 2)
-    private BigDecimal monthlyBudget;
+
     @CreationTimestamp
     private LocalDateTime createdAt;
     @UpdateTimestamp
     private LocalDateTime updateAt;
-
-    @OneToMany(mappedBy = "awsAccount", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    @JsonIgnore
-    @Builder.Default
-    private List<AccountAssignment> assignments = new ArrayList<>();
-
-    // helper methods
-    public void addAssignment(AccountAssignment assignment){
-        assignments.add(assignment);
-        assignment.setAwsAccount(this);
-    }
-
-    public void removeAssignment(AccountAssignment assignment){
-        assignments.remove(assignment);
-        assignment.setAwsAccount(null);
-    }
-
-    // ensure that account is active
-    @PrePersist
-    @PreUpdate
-    public void ensureActive(){
-        if(this.getActive() == null){
-            this.setActive(Boolean.TRUE);
-        }
-    }
 }
