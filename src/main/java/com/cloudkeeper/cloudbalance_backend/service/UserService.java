@@ -11,7 +11,6 @@ import com.cloudkeeper.cloudbalance_backend.logging.Logger;
 import com.cloudkeeper.cloudbalance_backend.logging.LoggerFactory;
 import com.cloudkeeper.cloudbalance_backend.repository.jpa.UserRepository;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -21,9 +20,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -33,18 +30,8 @@ public class UserService {
     private final Logger logger = LoggerFactory.getLogger(UserService.class);
 
     @Transactional(readOnly = true)
-    public PagedResponse<UserResponse> getAllUsers(
-            int page,
-            int size,
-            String sortBy,
-            String sortDir,
-            String search,
-            Boolean active,
-            UserRole role
-    ) {
-        Sort sort = sortDir.equalsIgnoreCase("desc")
-                ? Sort.by(sortBy).descending()
-                : Sort.by(sortBy).ascending();
+    public PagedResponse<UserResponse> getAllUsers(int page, int size, String sortBy, String sortDir, String search, Boolean active, UserRole role) {
+        Sort sort = sortDir.equalsIgnoreCase("desc") ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();
 
         Pageable pageable = PageRequest.of(page, size, sort);
 
@@ -62,19 +49,9 @@ public class UserService {
             userPage = userRepository.findAll(pageable);
         }
 
-        var content = userPage.getContent()
-                .stream()
-                .map(this::mapToResponse)
-                .toList();
+        var content = userPage.getContent().stream().map(this::mapToResponse).toList();
 
-        return PagedResponse.<UserResponse>builder()
-                .content(content)
-                .page(userPage.getNumber())
-                .size(userPage.getSize())
-                .totalElements(userPage.getTotalElements())
-                .first(userPage.isFirst())
-                .last(userPage.isLast())
-                .build();
+        return PagedResponse.<UserResponse>builder().content(content).page(userPage.getNumber()).size(userPage.getSize()).totalElements(userPage.getTotalElements()).first(userPage.isFirst()).last(userPage.isLast()).build();
     }
 
     @Transactional(readOnly = true)
@@ -93,14 +70,7 @@ public class UserService {
         // TODO : In production send via email
         String tempPassword = UUID.randomUUID().toString().substring(0, 8);
 
-        User user = User.builder()
-                .firstName(request.getFirstName())
-                .lastName(request.getLastName())
-                .email(request.getEmail())
-                .password(passwordEncoder.encode(tempPassword))
-                .role(UserRole.fromDisplayName(request.getRole()))
-                .active(true)
-                .build();
+        User user = User.builder().firstName(request.getFirstName()).lastName(request.getLastName()).email(request.getEmail()).password(passwordEncoder.encode(tempPassword)).role(UserRole.fromDisplayName(request.getRole())).active(true).build();
 
         User savedUser = userRepository.save(user);
         logger.info("Created user : {} with temp password : {}", savedUser.getEmail(), tempPassword);
@@ -141,18 +111,7 @@ public class UserService {
 
     private UserResponse mapToResponse(@NonNull User user) {
 
-        return UserResponse.builder()
-                .id(user.getId())
-                .firstName(user.getFirstName())
-                .lastName(user.getLastName())
-                .email(user.getEmail())
-                .role(user.getRole().getDisplayName())
-                .active(user.getActive())
-                .lastLogin(user.getLastLogin())
-                .createdAt(user.getCreatedAt())
-                .canPromote(user.getRole().equals(UserRole.ADMIN))
-                .canResend(!user.getActive() || user.getLastLogin() == null)
-                .build();
+        return UserResponse.builder().id(user.getId()).firstName(user.getFirstName()).lastName(user.getLastName()).email(user.getEmail()).role(user.getRole().getDisplayName()).active(user.getActive()).lastLogin(user.getLastLogin()).createdAt(user.getCreatedAt()).canPromote(user.getRole().equals(UserRole.ADMIN)).canResend(!user.getActive() || user.getLastLogin() == null).build();
     }
 
     public UserResponse deactivateUser(Long userId) {

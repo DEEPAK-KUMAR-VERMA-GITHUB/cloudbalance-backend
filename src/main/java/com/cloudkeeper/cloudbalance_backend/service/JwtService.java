@@ -1,7 +1,5 @@
 package com.cloudkeeper.cloudbalance_backend.service;
 
-import com.cloudkeeper.cloudbalance_backend.logging.Logger;
-import com.cloudkeeper.cloudbalance_backend.logging.LoggerFactory;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -22,8 +20,6 @@ import java.util.function.Function;
 @Service
 @RequiredArgsConstructor
 public class JwtService {
-    private static final Logger logger = LoggerFactory.getLogger(JwtService.class);
-    private final TokenBlackListService tokenBlackListService;
     @Value("${jwt.secret}")
     private String secretKey;
     @Value("${jwt.access-token-expiration}")
@@ -37,10 +33,6 @@ public class JwtService {
 
     public Long extractUserId(String token) {
         return extractClaim(token, claims -> claims.get("userId", Long.class));
-    }
-
-    public Integer extractTokenVersion(String token) {
-        return extractClaim(token, claims -> claims.get("tokenVersion", Integer.class));
     }
 
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
@@ -57,15 +49,7 @@ public class JwtService {
         return buildToken(extraClaims, user, accessTokenExpiration);
     }
 
-    public String generateRefreshToken(UserDetails user, Long userId, Integer tokenVersion) {
-        Map<String, Object> extraClaims = new HashMap<>();
-        extraClaims.put("userId", userId);
-        extraClaims.put("tokenVersion", tokenVersion);
-        extraClaims.put("type", "refresh");
-        return buildToken(extraClaims, user, refreshTokenExpiration);
-    }
-
-    public boolean isTokenValid(String token, UserDetails userDetails, Long userId) {
+    public boolean isTokenValid(String token, UserDetails userDetails) {
         final String username = extractUsername(token);
         return (username.equals(userDetails.getUsername())) && !isTokenExpired(token);
     }

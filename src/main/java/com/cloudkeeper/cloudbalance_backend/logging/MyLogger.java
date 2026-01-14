@@ -109,7 +109,7 @@ public class MyLogger implements Logger {
             if (current == '{' && i + 1 < length && message.charAt(i + 1) == '}') {
                 // Replace with argument if available
                 if (argIndex < args.length) {
-                    result.append(String.valueOf(args[argIndex]));
+                    result.append(args[argIndex]);
                     argIndex++;
                 } else {
                     // No more arguments, keep placeholder

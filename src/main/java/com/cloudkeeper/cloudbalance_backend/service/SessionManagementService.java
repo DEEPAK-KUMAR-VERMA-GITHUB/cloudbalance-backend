@@ -37,7 +37,6 @@ public class SessionManagementService {
 
 
     // create new redis session with max limit enforcement
-    // uses http session id for consistency with JwtAuthenticationFilter
     public UserSessionRedis createSession(User user, String deviceInfo, String ipAddress) {
 
         Instant now = Instant.now();
@@ -183,35 +182,7 @@ public class SessionManagementService {
             logger.error("Error fetching sessions for userId {}: {}", userId, e.getMessage(), e);
             return Collections.emptyList();
         }
-
-
-//
-//        try {
-//            // get all session ids from userId index
-//            String userIdIndexKey = "user_sessions:userId:" + userId;
-//            Set<Object> userSessionIds = redisTemplate.opsForSet().members(userIdIndexKey);
-//
-//            if (userSessionIds == null || userSessionIds.isEmpty()) {
-//                logger.info("No sessions found in userId index : {}", userIdIndexKey);
-//                return Collections.emptyList();
-//            }
-//
-//            logger.info("Found {} sessions in userId index for user {}", userSessionIds.size(), userId);
-//
-//            // fetch full user session objects
-//            List<UserSessionRedis> sessions = new ArrayList<>();
-//            for (Object sessionId : userSessionIds) {
-//                Optional<UserSessionRedis> session = sessionRedisRepository
-//                        .findById("user_sessions:" + sessionId);
-//                session.ifPresent(sessions::add);
-//            }
-//            logger.info("Retrieved {} active sessions for userId: {}", sessions.size(), userId);
-//            return sessions;
-//
-//        } catch (Exception e) {
-//            logger.error("Error fetching sessions for userId {}: {}", userId, e.getMessage());
-//            return Collections.emptyList();
-//        }
+        
     }
 
     // deactivate specific session

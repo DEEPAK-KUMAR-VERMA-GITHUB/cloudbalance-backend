@@ -47,5 +47,4 @@ public class AccountAssignmentService {
         userRepository.save(user);
         logger.info("Account {} unassigned from user {}", account.getAccountAlias(), user.getEmail());
     }
-
 }

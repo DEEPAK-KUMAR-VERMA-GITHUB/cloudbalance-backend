@@ -95,17 +95,6 @@ public class RefreshTokenService {
         logger.info("All tokens revoked for user : {}", user.getEmail());
     }
 
-    @Transactional
-    public void deleteExpiredTokens() {
-        refreshTokenRepository.deleteExpiredTokens(Instant.now());
-    }
-
-    @Transactional
-    public boolean hasActiveSession(User user) {
-        List<RefreshToken> activeTokens = refreshTokenRepository.findActiveTokensByUser(user);
-        return !activeTokens.isEmpty();
-    }
-
     @Transactional(readOnly = true)
     public Optional<RefreshToken> findLatestValidRefreshToken(Long userId){
         Optional<RefreshToken> refreshToken = refreshTokenRepository.findTopByUserIdAndRevokedFalseOrderByCreatedAtDesc(userId);

@@ -7,7 +7,6 @@ import com.cloudkeeper.cloudbalance_backend.dto.response.ApiResponse;
 import com.cloudkeeper.cloudbalance_backend.dto.response.AwsAccountResponse;
 import com.cloudkeeper.cloudbalance_backend.entity.AwsAccount;
 import com.cloudkeeper.cloudbalance_backend.helper.roleAnnotations.AdminOnly;
-import com.cloudkeeper.cloudbalance_backend.helper.roleAnnotations.AnyAuthenticatedUser;
 import com.cloudkeeper.cloudbalance_backend.helper.roleAnnotations.CustomerOnly;
 import com.cloudkeeper.cloudbalance_backend.helper.roleAnnotations.ReadOnlyOrAbove;
 import com.cloudkeeper.cloudbalance_backend.logging.Logger;

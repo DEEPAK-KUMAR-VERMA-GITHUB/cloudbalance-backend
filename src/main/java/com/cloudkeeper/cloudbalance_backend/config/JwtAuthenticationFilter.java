@@ -117,7 +117,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 UserDetails userDetails = this.appUserDetailsService.loadUserByUsername(userEmail);
                 logger.debug("UserDetails loaded: {}", userDetails.getUsername());
 
-                // 3. Get session ID from HTTP session
+                // 3. Get session ID from JWT
                 String sessionId = jwtService.extractSessionId(jwt);
 
                 if (sessionId == null) {
@@ -133,7 +133,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 if (!tokenExpired) {
                     // Token not expired yet, validate normally
-                    isValid = jwtService.isTokenValid(jwt, userDetails, userId);
+                    isValid = jwtService.isTokenValid(jwt, userDetails);
                 }
 
                 if (tokenExpired || !isValid) {

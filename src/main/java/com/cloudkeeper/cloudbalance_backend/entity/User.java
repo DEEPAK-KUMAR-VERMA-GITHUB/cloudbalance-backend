@@ -1,5 +1,6 @@
 package com.cloudkeeper.cloudbalance_backend.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -62,5 +63,6 @@ public class User {
             inverseJoinColumns = @JoinColumn(name = "account_id")
     )
     @Builder.Default
+    @JsonIgnore
     private Set<AwsAccount> assignedAccounts = new HashSet<>();
 }

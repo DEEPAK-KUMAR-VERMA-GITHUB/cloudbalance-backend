@@ -6,6 +6,7 @@ import com.cloudkeeper.cloudbalance_backend.dto.response.MonthWiseData;
 import com.cloudkeeper.cloudbalance_backend.entity.CostReport;
 import com.snowflake.snowpark_java.Row;
 import com.snowflake.snowpark_java.Session;
+import enums.Granularity;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
 
@@ -142,6 +143,21 @@ public class SnowflakeUtils {
 
         return CostReportResponse.builder().groupWise(groupWiseData).monthWise(monthWiseData).build();
 
+    }
+
+
+
+    public static String getPeriodExpression(Granularity granularity) {
+        return granularity == Granularity.MONTHLY
+                ? "TO_VARCHAR(DATE_TRUNC('month', usage_date), 'MM/YYYY')"
+                : "TO_VARCHAR(usage_date, 'YYYY-MM-DD')";
+    }
+
+    public static String buildAccountFilter(boolean isAdmin, String userAccountListSql) {
+        if (isAdmin) {
+            return "";
+        }
+        return "AND account_id IN (" + userAccountListSql + ")";
     }
 
 }

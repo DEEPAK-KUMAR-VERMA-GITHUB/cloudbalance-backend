@@ -55,20 +55,20 @@ public class DataInitializer implements CommandLineRunner {
 
         // Create AWS Accounts
         AwsAccount prodAccount = createAwsAccount(
-                "123456789012",
-                "Production Account",
+                "111111111111",
+                "Prod-Account",
                 "arn:aws:iam::123456789012:role/CloudBalanceRole"
         );
 
         AwsAccount devAccount = createAwsAccount(
-                "210987654321",
-                "Development Account",
+                "222222222222",
+                "Dev-Account",
                 "arn:aws:iam::210987654321:role/CloudBalanceRole"
         );
 
         AwsAccount stagingAccount = createAwsAccount(
-                "345678901234",
-                "Staging Account",
+                "333333333333",
+                "Analytics-Account",
                 "arn:aws:iam::555666777888:role/CloudBalanceRole"
         );
 

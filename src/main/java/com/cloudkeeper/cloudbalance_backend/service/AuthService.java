@@ -176,7 +176,7 @@ public class AuthService {
             if (activeSessions.isEmpty()) {
                 throw new InvalidCredentialsException("No active session found. Please login again.");
             }
-            // Use the first active session (or implement logic to choose the correct one)
+            // Use the first active session 
             sessionId = activeSessions.getFirst().getSessionId();
         }
 
@@ -219,8 +219,7 @@ public class AuthService {
             tokenBlackListService.blacklistToken(accessToken, jwtService.getAccessTokenExpiration());
         }
 
-        // get session id from request
-        String sessionId = request.getSession(false) != null ? request.getSession(false).getId() : null;
+        String sessionId = extractSessionIdFromCookie(request);
 
         if (sessionId != null) {
             sessionManagementService.invalidateSession(sessionId, user.getId());
@@ -229,37 +228,9 @@ public class AuthService {
         } else {
             logger.warn("No session found for logout: {}", authentication.getName());
         }
-
-
+        clearAuthCookies(response);
     }
-
-    @Transactional
-    public void logout(String email, HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) {
-        User user = userRepository.findByEmail(email).orElseThrow(() -> new InvalidCredentialsException("User not found"));
-
-        // extract access token
-        String accessToken = extractAccessToken(httpServletRequest);
-
-        if (accessToken != null) {
-            // Blacklist current access token
-            tokenBlackListService.blacklistToken(accessToken, jwtService.getAccessTokenExpiration());
-
-            // revoke all refresh tokens
-            refreshTokenService.revokeAllUserTokens(user);
-            // invalidate session
-            String sessionId = httpServletRequest.getSession(false) != null ? httpServletRequest.getSession(false).getId() : null;
-
-            if (sessionId != null) {
-                sessionManagementService.invalidateSession(sessionId, user.getId());
-            }
-
-            // clear cookies
-            clearAuthCookies(httpServletResponse);
-
-            logger.info("User logged out : {}", email);
-        }
-    }
-
+    
     @Transactional(readOnly = true)
     public List<UserSessionRedis> getActiveUserSessions(Authentication authentication) {
         User user = userRepository.findByEmail(authentication.getName()).orElseThrow(() -> new ResourceNotFoundException("User not found"));
@@ -304,6 +275,19 @@ public class AuthService {
         return null;
     }
 
+    private String extractSessionIdFromCookie(HttpServletRequest request) {
+        if (request.getCookies() != null) {
+            for (Cookie cookie : request.getCookies()) {
+                System.out.println("Cookie : - " + cookie.getName());
+                if ("SESSIONID".equals(cookie.getName())) {
+                    return cookie.getValue();
+                }
+            }
+        }
+        return null;
+    }
+
+
     private String extractRefreshTokenFromCookie(HttpServletRequest httpServletRequest) {
         if (httpServletRequest.getCookies() != null) {
             for (Cookie cookie : httpServletRequest.getCookies()) {
@@ -329,8 +313,15 @@ public class AuthService {
         refreshCookie.setPath("/api/v1/auth");
         refreshCookie.setMaxAge(0);
 
+        Cookie sessionCookie = new Cookie("SESSIONID", null);
+        sessionCookie.setHttpOnly(true);
+        sessionCookie.setSecure(false); // TODO: set to true in production
+        sessionCookie.setPath("/api");
+        sessionCookie.setMaxAge(0);
+
         httpServletResponse.addCookie(accessCookie);
         httpServletResponse.addCookie(refreshCookie);
+        httpServletResponse.addCookie(sessionCookie);
     }
 
     private String extractIpAddress(HttpServletRequest request) {

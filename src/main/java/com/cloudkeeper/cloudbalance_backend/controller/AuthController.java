@@ -5,13 +5,7 @@ import com.cloudkeeper.cloudbalance_backend.dto.response.ApiResponse;
 import com.cloudkeeper.cloudbalance_backend.dto.response.AuthResponse;
 import com.cloudkeeper.cloudbalance_backend.entity.UserSessionRedis;
 import com.cloudkeeper.cloudbalance_backend.helper.roleAnnotations.AnyAuthenticatedUser;
-import com.cloudkeeper.cloudbalance_backend.logging.Logger;
-import com.cloudkeeper.cloudbalance_backend.logging.LoggerFactory;
-import com.cloudkeeper.cloudbalance_backend.logging.annotation.Loggable;
 import com.cloudkeeper.cloudbalance_backend.service.AuthService;
-import com.cloudkeeper.cloudbalance_backend.service.JwtService;
-import com.cloudkeeper.cloudbalance_backend.service.SessionManagementService;
-import com.cloudkeeper.cloudbalance_backend.service.TokenBlackListService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -30,10 +24,6 @@ import java.util.List;
 @Tag(name = "Authentication", description = "Authentication Management APIs")
 public class AuthController {
     private final AuthService authService;
-    private final SessionManagementService sessionManagementService;
-    private final JwtService jwtService;
-    private final TokenBlackListService tokenBlackListService;
-    private final Logger logger = LoggerFactory.getLogger(AuthController.class);
 
     @PostMapping("/login")
     @Operation(summary = "Login user", description = "Authenticate user and return jwt token")
@@ -67,28 +57,16 @@ public class AuthController {
     @GetMapping("/sessions")
     public ResponseEntity<ApiResponse<List<UserSessionRedis>>> getActiveSessions(Authentication authentication) {
         List<UserSessionRedis> sessions = authService.getActiveUserSessions(authentication);
-        return ResponseEntity.ok(ApiResponse.<List<UserSessionRedis>>builder()
-                .success(true)
-                .data(sessions)
-                .build());
+        return ResponseEntity.ok(ApiResponse.<List<UserSessionRedis>>builder().success(true).data(sessions).build());
     }
 
     @AnyAuthenticatedUser
     @PostMapping("/logout")
     @Operation(summary = "Logout user", description = "Logout user and invalidate tokens")
-    public ResponseEntity<ApiResponse<Void>> logout(
-            Authentication authentication,
-            HttpServletRequest request,
-            HttpServletResponse response
-    ) {
+    public ResponseEntity<ApiResponse<Void>> logout(Authentication authentication, HttpServletRequest request, HttpServletResponse response) {
         authService.logoutDevice(authentication, request, response);
 
-        return ResponseEntity.ok(
-                ApiResponse.<Void>builder()
-                        .success(true)
-                        .message("Logout successful")
-                        .build()
-        );
+        return ResponseEntity.ok(ApiResponse.<Void>builder().success(true).message("Logout successful").build());
     }
 }
 

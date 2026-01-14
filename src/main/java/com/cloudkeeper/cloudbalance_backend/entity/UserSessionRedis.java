@@ -24,7 +24,6 @@ public class UserSessionRedis implements Serializable {
 
     @Indexed    // required for findByUserId query
     private Long userId;
-    @Indexed    // required for email queries
     private String email;
     private String deviceInfo;
     private String ipAddress;

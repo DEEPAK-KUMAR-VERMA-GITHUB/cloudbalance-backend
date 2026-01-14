@@ -44,11 +44,6 @@ public class TokenBlackListService {
         redisTemplate.opsForValue().set(key, version.toString());
     }
 
-    public void invalidatedAllUserTokens(Long userId) {
-        incrementUserTokenVersion(userId);
-        logger.info("All tokens invalidated for user: {}", userId);
-    }
-
 }
 
 
